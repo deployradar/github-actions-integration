@@ -1,5 +1,8 @@
 name: Example Workflow
 
+on:
+  workflow_dispatch:
+
 permissions:
   actions: read
   contents: read
