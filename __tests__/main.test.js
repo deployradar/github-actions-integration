@@ -3,50 +3,78 @@
  */
 import { afterEach, beforeEach, jest } from '@jest/globals'
 const core = await import('../__fixtures__/core')
-const github = await import('../__fixtures__/github')
 
 jest.unstable_mockModule('@actions/core', () => core)
-jest.unstable_mockModule('@actions/github', () => github)
 
 const main = await import('../src/main')
 
 describe('action', () => {
   beforeEach(() => {
-    // Mock the action's inputs
-    core.getInput.mockReturnValueOnce('World')
+    core.getInput.mockImplementation((name) => {
+      const inputs = {
+        releaseVersion: '3.1.1',
+        componentId: 'Comp-1',
+        environment: 'Production',
+        apiKey: 'test-key'
+      }
+      return inputs[name]
+    })
 
-    // Mock the action's payload
-    github.context.payload = {
-      actor: 'mona'
-    }
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      statusText: 'Created',
+      text: jest.fn().mockResolvedValue('{"result":"ok"}')
+    })
   })
 
   afterEach(() => {
     jest.resetAllMocks()
+    delete global.fetch
   })
 
-  it('sets the time output', async () => {
+  it('calls the DeployRadar API', async () => {
     await main.run()
 
-    expect(core.setOutput).toHaveBeenCalledWith('time', expect.any(String))
-  })
-
-  it('logs the event payload', async () => {
-    await main.run()
-
-    expect(core.info).toHaveBeenCalledWith(
-      `The event payload: ${JSON.stringify(github.context.payload, null, 2)}`
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.deployradar.com/api/deploy-radar/v1/deploy',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'test-key'
+        },
+        body: JSON.stringify({
+          releaseVersion: '3.1.1',
+          componentId: 'Comp-1',
+          environment: 'Production'
+        })
+      })
     )
+    expect(core.setOutput).toHaveBeenCalledWith('status', '201')
+    expect(core.setOutput).toHaveBeenCalledWith('response', '{"result":"ok"}')
   })
 
-  it('sets a failed status', async () => {
-    // Mock a failure
-    core.getInput.mockReset().mockImplementation((name) => {
-      throw new Error('Something went wrong...')
+  it('sets a failed status when the API rejects', async () => {
+    global.fetch.mockRejectedValue(new Error('network down'))
+
+    await main.run()
+
+    expect(core.setFailed).toHaveBeenCalledWith('network down')
+  })
+
+  it('sets a failed status when the API returns an error', async () => {
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      text: jest.fn().mockResolvedValue('boom')
     })
 
     await main.run()
 
-    expect(core.setFailed).toHaveBeenCalledWith('Something went wrong...')
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Failed to create deployment in DeployRadar'
+    )
   })
 })

@@ -1,26 +1,62 @@
 import * as core from '@actions/core'
-import * as github from '@actions/github'
+
+const BASE_URL = 'https://api.deployradar.com'
+const DEPLOY_ENDPOINT = `${BASE_URL}/api/deploy-radar/v1/deploy`
 
 /**
- * The main function for the action.
- * @returns {Promise<void>} Resolves when the action is complete.
+ * Sends a deployment creation request to DeployRadar.
+ * @returns {Promise<void>} Resolves when the deployment request completes.
  */
 export async function run() {
   try {
-    // The `who-to-greet` input is defined in action metadata file
-    const whoToGreet = core.getInput('who-to-greet', { required: true })
-    core.info(`Hello, ${whoToGreet}!`)
+    const releaseVersion = core.getInput('releaseVersion', { required: true })
+    const componentId = core.getInput('componentId', { required: true })
+    const environment = core.getInput('environment', { required: true })
+    const apiKey = core.getInput('apiKey', { required: true })
 
-    // Get the current time and set as an output
-    const time = new Date().toTimeString()
-    core.setOutput('time', time)
+    const payload = {
+      releaseVersion,
+      componentId,
+      environment
+    }
 
-    // Output the payload for debugging
     core.info(
-      `The event payload: ${JSON.stringify(github.context.payload, null, 2)}`
+      `Creating deployment for component ${componentId} (${releaseVersion}) in ${environment}`
     )
+
+    const response = await fetch(DEPLOY_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify(payload)
+    })
+
+    const responseText = await response.text().catch(() => '')
+
+    if (!response.ok) {
+      core.error(
+        `DeployRadar API returned ${response.status} ${response.statusText}`
+      )
+      if (responseText) {
+        core.error(responseText)
+      }
+      throw new Error('Failed to create deployment in DeployRadar')
+    }
+
+    if (responseText) {
+      core.debug(`DeployRadar response: ${responseText}`)
+    }
+
+    core.info('Deployment request completed successfully.')
+
+    core.setOutput('status', String(response.status))
+    if (responseText) {
+      core.setOutput('response', responseText)
+    }
   } catch (error) {
-    // Fail the workflow step if an error occurs
-    core.setFailed(error.message)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    core.setFailed(message)
   }
 }

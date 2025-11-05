@@ -1,0 +1,25 @@
+name: DeployRadar Integration Example
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  deploy:
+    name: Trigger DeployRadar Deployment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Deploy via DeployRadar
+        uses: ./
+        with:
+          releaseVersion: "7.23.0"
+          componentId: "aurora-gateway"
+          environment: "Production"
+          apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}

@@ -1,18 +1,26 @@
-name: Hello, World!
-description: Greet someone and record the time
-author: GitHub Actions
+name: DeployRadar Deployment
+description: Trigger a DeployRadar deployment via the public API
+author: DeployRadar
 
-# Define your inputs here.
 inputs:
-  who-to-greet:
-    description: Who to greet
+  releaseVersion:
+    description: Release version to deploy (semantic version)
     required: true
-    default: World
+  componentId:
+    description: Component identifier to deploy
+    required: true
+  environment:
+    description: Target environment (e.g. Production)
+    required: true
+  apiKey:
+    description: DeployRadar API key used for authentication
+    required: true
 
-# Define your outputs here.
 outputs:
-  time:
-    description: The time we greeted you
+  status:
+    description: HTTP status returned by the DeployRadar API
+  response:
+    description: Raw response body from the DeployRadar API when available
 
 runs:
   using: node24
