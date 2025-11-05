@@ -37,12 +37,12 @@ describe('action', () => {
     await main.run()
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.deployradar.com/api/deploy-radar/v1/deploy',
+      'https://dev.deployradar.com/api/deploy-radar/v1/deploy',
       expect.objectContaining({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': 'test-key'
+          Authorization: 'Bearer test-key'
         },
         body: JSON.stringify({
           releaseVersion: '3.1.1',

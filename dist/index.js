@@ -27231,7 +27231,7 @@ function requireCore () {
 
 var coreExports = requireCore();
 
-const BASE_URL = 'https://api.deployradar.com';
+const BASE_URL = 'https://dev.deployradar.com';
 const DEPLOY_ENDPOINT = `${BASE_URL}/api/deploy-radar/v1/deploy`;
 
 /**
@@ -27255,11 +27255,13 @@ async function run() {
       `Creating deployment for component ${componentId} (${releaseVersion}) in ${environment}`
     );
 
+    const authHeader = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
+
     const response = await fetch(DEPLOY_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': apiKey
+        Authorization: authHeader
       },
       body: JSON.stringify(payload)
     });
