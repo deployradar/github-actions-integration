@@ -14,8 +14,7 @@ jobs:
           script: |
             //var dummy = context.payload.inputs.dummy
             return {
-                context: context,
-                github: github
+                context: context.payload
             }
 
       - run: |
