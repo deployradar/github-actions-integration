@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: script
         id: script
-        uses: actions/github-script@v5
+        uses: actions/github-script@v8
         with:
           script: |
             //var dummy = context.payload.inputs.dummy
