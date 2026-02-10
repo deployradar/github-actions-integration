@@ -5,13 +5,13 @@
 #     https://github.com/super-linter/super-linter
 name: Lint Codebase
 
-on:
-  pull_request:
-    branches:
-      - main
-  push:
-    branches:
-      - main
+# on:
+#   pull_request:
+#     branches:
+#       - main
+#   push:
+#     branches:
+#       - main
 
 permissions:
   contents: read
