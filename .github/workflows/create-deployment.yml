@@ -20,6 +20,6 @@ jobs:
         uses: ./
         with:
           releaseVersion: "7.23.0"
-          componentId: "aurora-gateway"
+          componentName: "aurora-gateway"
           environment: "Production"
           apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}

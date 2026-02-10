@@ -3,8 +3,10 @@
  */
 import { afterEach, beforeEach, jest } from '@jest/globals'
 const core = await import('../__fixtures__/core')
+const github = await import('../__fixtures__/github')
 
 jest.unstable_mockModule('@actions/core', () => core)
+jest.unstable_mockModule('@actions/github', () => github)
 
 const main = await import('../src/main')
 
@@ -13,12 +15,14 @@ describe('action', () => {
     core.getInput.mockImplementation((name) => {
       const inputs = {
         releaseVersion: '3.1.1',
-        componentId: 'Comp-1',
+        componentName: 'aurora-gateway',
         environment: 'Production',
         apiKey: 'test-key'
       }
       return inputs[name]
     })
+
+    process.env.GITHUB_JOB_STATUS = 'success'
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -31,13 +35,14 @@ describe('action', () => {
   afterEach(() => {
     jest.resetAllMocks()
     delete global.fetch
+    delete process.env.GITHUB_JOB_STATUS
   })
 
   it('calls the DeployRadar API', async () => {
     await main.run()
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'https://dev.deployradar.com/api/deploy-radar/v1/deploy',
+      'https://dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -45,9 +50,33 @@ describe('action', () => {
           Authorization: 'Bearer test-key'
         },
         body: JSON.stringify({
-          releaseVersion: '3.1.1',
-          componentId: 'Comp-1',
-          environment: 'Production'
+          integration: {
+            version: 'v0.0.1',
+            timestamp: expect.any(String)
+          },
+          parameters: {
+            deploymentState: 'SUCCESS',
+            releaseVersion: '3.1.1',
+            componentName: 'aurora-gateway',
+            environment: 'Production'
+          },
+          context: {
+            repository: {
+              full_name: 'deployradar/github-actions-integration',
+              html_url: 'https://github.com/deployradar/github-actions-integration',
+              name: 'github-actions-integration',
+              pushed_at: '2026-01-14T18:22:09Z'
+            },
+            eventName: 'workflow_dispatch',
+            sha: '83fff8ade43591d553b9c7fec102901920f15b84',
+            ref: 'refs/heads/main',
+            workflow: 'scripty',
+            action: 'script',
+            actor: 'fwende',
+            job: 'scripty',
+            runNumber: 1,
+            runId: 21005190828
+          }
         })
       })
     )

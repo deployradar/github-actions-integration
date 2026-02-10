@@ -15,13 +15,17 @@ on:
         description: Release version to deploy
         required: true
         type: string
-      componentId:
-        description: Component identifier
+      componentName:
+        description: Component name
         required: true
         type: string
       environment:
         description: Target environment name
         required: true
+        type: string
+      deploymentState:
+        description: Deployment state (SUCCESS/FAILURE)
+        required: false
         type: string
       apiKey:
         description: DeployRadar API key
@@ -36,8 +40,9 @@ jobs:
         uses: release-tracker/deployradar-action@main
         with:
           releaseVersion: ${{ inputs.releaseVersion }}
-          componentId: ${{ inputs.componentId }}
+          componentName: ${{ inputs.componentName }}
           environment: ${{ inputs.environment }}
+          deploymentState: ${{ inputs.deploymentState }}
           apiKey: ${{ inputs.apiKey }}
 ```
 
@@ -46,8 +51,9 @@ jobs:
 | Input            | Required | Description                               |
 | ---------------- | -------- | ----------------------------------------- |
 | `releaseVersion` | Yes      | Semantic version that should be deployed  |
-| `componentId`    | Yes      | Component identifier in DeployRadar       |
+| `componentName`  | Yes      | Component name in DeployRadar             |
 | `environment`    | Yes      | Destination environment (e.g. Production) |
+| `deploymentState` | No      | Deployment state (SUCCESS/FAILURE)        |
 | `apiKey`         | Yes      | DeployRadar API key for authentication    |
 
 ## Outputs

@@ -6,12 +6,15 @@ inputs:
   releaseVersion:
     description: Release version to deploy (semantic version)
     required: true
-  componentId:
-    description: Component identifier to deploy
+  componentName:
+    description: Component name to deploy
     required: true
   environment:
     description: Target environment (e.g. Production)
     required: true
+  deploymentState:
+    description: Deployment state (defaults to SUCCESS when previous steps succeed)
+    required: false
   apiKey:
     description: DeployRadar API key used for authentication
     required: true
