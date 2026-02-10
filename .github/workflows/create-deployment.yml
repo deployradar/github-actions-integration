@@ -19,7 +19,7 @@ jobs:
       - name: Deploy via DeployRadar
         uses: ./
         with:
-          releaseVersion: "7.23.0"
-          componentName: "aurora-gateway"
-          environment: "Production"
+          releaseVersion: '7.23.2'
+          componentName: 'aurora-gateway'
+          environment: 'Development'
           apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}

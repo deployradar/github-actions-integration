@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import { readFileSync } from 'node:fs'
+import * as github from '@actions/github'
 
 const BASE_URL = 'https://dev.deployradar.com'
 const DEPLOY_ENDPOINT = `${BASE_URL}/api/deploy-radar/v1/deploy/github-actions`
@@ -11,7 +11,11 @@ function resolveDeploymentState(inputState) {
     return trimmed.toUpperCase()
   }
 
-  const jobStatus = (process.env.GITHUB_JOB_STATUS || process.env.JOB_STATUS || '').toLowerCase()
+  const jobStatus = (
+    process.env.GITHUB_JOB_STATUS ||
+    process.env.JOB_STATUS ||
+    ''
+  ).toLowerCase()
   if (jobStatus === 'failure' || jobStatus === 'cancelled') {
     return 'FAILURE'
   }
@@ -19,34 +23,18 @@ function resolveDeploymentState(inputState) {
   return 'SUCCESS'
 }
 
-function readGitHubPayload() {
-  const eventPath = process.env.GITHUB_EVENT_PATH
-  if (!eventPath) {
-    return null
-  }
-  try {
-    const raw = readFileSync(eventPath, 'utf8')
-    return JSON.parse(raw)
-  } catch (error) {
-    core.warning(`Failed to read GitHub event payload: ${error instanceof Error ? error.message : 'unknown error'}`)
-    return null
-  }
-}
-
 function buildGitHubContext() {
-  const payload = readGitHubPayload()
-
   return {
-    repository: payload?.repository ?? null,
-    eventName: process.env.GITHUB_EVENT_NAME,
-    sha: process.env.GITHUB_SHA,
-    ref: process.env.GITHUB_REF,
-    workflow: process.env.GITHUB_WORKFLOW,
-    action: process.env.GITHUB_ACTION,
-    actor: process.env.GITHUB_ACTOR,
-    job: process.env.GITHUB_JOB,
-    runNumber: process.env.GITHUB_RUN_NUMBER ? Number(process.env.GITHUB_RUN_NUMBER) : undefined,
-    runId: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : undefined
+    repository: github.context.payload?.repository ?? null,
+    eventName: github.context.eventName,
+    sha: github.context.sha,
+    ref: github.context.ref,
+    workflow: github.context.workflow,
+    action: github.context.action,
+    actor: github.context.actor,
+    job: github.context.job,
+    runNumber: github.context.runNumber,
+    runId: github.context.runId
   }
 }
 
@@ -62,8 +50,16 @@ export async function run() {
     const apiKey = core.getInput('apiKey', { required: true })
     const deploymentStateInput = core.getInput('deploymentState')
 
+    if (!apiKey.trim()) {
+      throw new Error('apiKey input is empty')
+    }
+
     const deploymentState = resolveDeploymentState(deploymentStateInput)
     const context = buildGitHubContext()
+
+    core.debug(`apiKey length: ${apiKey.length}`)
+    core.debug(`deploymentState: ${deploymentState}`)
+    core.debug(`context sha: ${context?.sha ?? 'unknown'}`)
 
     const payload = {
       integration: {
@@ -79,11 +75,15 @@ export async function run() {
       context
     }
 
+    core.debug(`payload: ${JSON.stringify(payload)}`)
+
     core.info(
       `Creating deployment for component ${componentName} (${releaseVersion}) in ${environment}`
     )
 
-    const authHeader = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`
+    const authHeader = apiKey.startsWith('Bearer ')
+      ? apiKey
+      : `Bearer ${apiKey}`
 
     const response = await fetch(DEPLOY_ENDPOINT, {
       method: 'POST',

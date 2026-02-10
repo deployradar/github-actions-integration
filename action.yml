@@ -13,7 +13,8 @@ inputs:
     description: Target environment (e.g. Production)
     required: true
   deploymentState:
-    description: Deployment state (defaults to SUCCESS when previous steps succeed)
+    description:
+      Deployment state (defaults to SUCCESS when previous steps succeed)
     required: false
   apiKey:
     description: DeployRadar API key used for authentication

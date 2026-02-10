@@ -1,4 +1,3 @@
-
 name: scripty
 on:
   workflow_dispatch:

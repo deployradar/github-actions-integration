@@ -21,7 +21,7 @@
     "ref": "refs/heads/main",
     "workflow": "scripty", // use as Workflow name
     "action": "script",
-    "actor": "fwende",  // use as Created by (Place holder name)
+    "actor": "fwende", // use as Created by (Place holder name)
     "job": "scripty",
     "runNumber": 1,
     "runId": 21005190828 // use for linking to the run: ${{payload.repository.html_url}}/actions/runs/${{payload.runId}}

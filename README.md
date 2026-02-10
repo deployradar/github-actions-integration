@@ -48,13 +48,13 @@ jobs:
 
 ## Inputs
 
-| Input            | Required | Description                               |
-| ---------------- | -------- | ----------------------------------------- |
-| `releaseVersion` | Yes      | Semantic version that should be deployed  |
-| `componentName`  | Yes      | Component name in DeployRadar             |
-| `environment`    | Yes      | Destination environment (e.g. Production) |
-| `deploymentState` | No      | Deployment state (SUCCESS/FAILURE)        |
-| `apiKey`         | Yes      | DeployRadar API key for authentication    |
+| Input             | Required | Description                               |
+| ----------------- | -------- | ----------------------------------------- |
+| `releaseVersion`  | Yes      | Semantic version that should be deployed  |
+| `componentName`   | Yes      | Component name in DeployRadar             |
+| `environment`     | Yes      | Destination environment (e.g. Production) |
+| `deploymentState` | No       | Deployment state (SUCCESS/FAILURE)        |
+| `apiKey`          | Yes      | DeployRadar API key for authentication    |
 
 ## Outputs
 
