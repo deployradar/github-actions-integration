@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import * as github from '@actions/github'
+import { readFileSync } from 'node:fs'
 
 const BASE_URL = 'https://dev.deployradar.com'
 const DEPLOY_ENDPOINT = `${BASE_URL}/api/deploy-radar/v1/deploy/github-actions`
@@ -19,6 +19,37 @@ function resolveDeploymentState(inputState) {
   return 'SUCCESS'
 }
 
+function readGitHubPayload() {
+  const eventPath = process.env.GITHUB_EVENT_PATH
+  if (!eventPath) {
+    return null
+  }
+  try {
+    const raw = readFileSync(eventPath, 'utf8')
+    return JSON.parse(raw)
+  } catch (error) {
+    core.warning(`Failed to read GitHub event payload: ${error instanceof Error ? error.message : 'unknown error'}`)
+    return null
+  }
+}
+
+function buildGitHubContext() {
+  const payload = readGitHubPayload()
+
+  return {
+    repository: payload?.repository ?? null,
+    eventName: process.env.GITHUB_EVENT_NAME,
+    sha: process.env.GITHUB_SHA,
+    ref: process.env.GITHUB_REF,
+    workflow: process.env.GITHUB_WORKFLOW,
+    action: process.env.GITHUB_ACTION,
+    actor: process.env.GITHUB_ACTOR,
+    job: process.env.GITHUB_JOB,
+    runNumber: process.env.GITHUB_RUN_NUMBER ? Number(process.env.GITHUB_RUN_NUMBER) : undefined,
+    runId: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : undefined
+  }
+}
+
 /**
  * Sends a deployment creation request to DeployRadar.
  * @returns {Promise<void>} Resolves when the deployment request completes.
@@ -32,9 +63,7 @@ export async function run() {
     const deploymentStateInput = core.getInput('deploymentState')
 
     const deploymentState = resolveDeploymentState(deploymentStateInput)
-
-    const { context } = github
-    const repository = context.payload?.repository ?? null
+    const context = buildGitHubContext()
 
     const payload = {
       integration: {
@@ -47,18 +76,7 @@ export async function run() {
         componentName,
         environment
       },
-      context: {
-        repository,
-        eventName: context.eventName,
-        sha: context.sha,
-        ref: context.ref,
-        workflow: context.workflow,
-        action: context.action,
-        actor: context.actor,
-        job: context.job,
-        runNumber: context.runNumber,
-        runId: context.runId
-      }
+      context
     }
 
     core.info(

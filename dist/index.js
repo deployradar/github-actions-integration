@@ -1,5 +1,4 @@
 import require$$0 from 'os';
-import * as github from '@actions/github';
 import require$$0$1 from 'crypto';
 import require$$1 from 'fs';
 import require$$1$5 from 'path';
@@ -27248,6 +27247,37 @@ function resolveDeploymentState(inputState) {
 	}
 
 	return 'SUCCESS';
+}
+
+function readGitHubPayload() {
+	const eventPath = process.env.GITHUB_EVENT_PATH;
+	if (!eventPath) {
+		return null;
+	}
+	try {
+		const raw = require$$1.readFileSync(eventPath, 'utf8');
+		return JSON.parse(raw);
+	} catch (error) {
+		coreExports.warning(`Failed to read GitHub event payload: ${error instanceof Error ? error.message : 'unknown error'}`);
+		return null;
+	}
+}
+
+function buildGitHubContext() {
+	const payload = readGitHubPayload();
+
+	return {
+		repository: (payload == null ? void 0 : payload.repository) ?? null,
+		eventName: process.env.GITHUB_EVENT_NAME,
+		sha: process.env.GITHUB_SHA,
+		ref: process.env.GITHUB_REF,
+		workflow: process.env.GITHUB_WORKFLOW,
+		action: process.env.GITHUB_ACTION,
+		actor: process.env.GITHUB_ACTOR,
+		job: process.env.GITHUB_JOB,
+		runNumber: process.env.GITHUB_RUN_NUMBER ? Number(process.env.GITHUB_RUN_NUMBER) : void 0,
+		runId: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : void 0
+	};
 }
 
 /**
