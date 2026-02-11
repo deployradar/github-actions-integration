@@ -1,5 +1,5 @@
 name: DeployRadar Deployment
-description: Trigger a DeployRadar deployment via the public API
+description: This action creates a deployment in DeployRadar
 author: DeployRadar
 
 inputs:
