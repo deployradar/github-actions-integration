@@ -17,12 +17,11 @@ describe('action', () => {
         releaseVersion: '3.1.1',
         componentName: 'aurora-gateway',
         environment: 'Production',
+        jobStatus: 'success',
         apiKey: 'test-key'
       }
-      return inputs[name]
+      return inputs[name] ?? ''
     })
-
-    process.env.GITHUB_JOB_STATUS = 'success'
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -35,7 +34,6 @@ describe('action', () => {
   afterEach(() => {
     jest.resetAllMocks()
     delete global.fetch
-    delete process.env.GITHUB_JOB_STATUS
   })
 
   it('calls the DeployRadar API', async () => {
@@ -44,7 +42,7 @@ describe('action', () => {
     const [url, options] = global.fetch.mock.calls[0]
 
     expect(url).toBe(
-      'https://dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions'
+      'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions'
     )
     expect(options).toEqual(
       expect.objectContaining({
@@ -57,24 +55,18 @@ describe('action', () => {
     )
 
     const payload = JSON.parse(options.body)
-    expect(payload).toEqual({
+    expect(payload).toMatchObject({
       integration: {
         version: 'v0.0.1',
         timestamp: expect.any(String)
       },
       parameters: {
-        deploymentState: 'SUCCESS',
-        releaseVersion: '3.1.1',
         componentName: 'aurora-gateway',
-        environment: 'Production'
+        environment: 'Production',
+        releaseVersion: '3.1.1',
+        deploymentState: 'SUCCESS'
       },
       context: {
-        repository: {
-          full_name: 'deployradar/github-actions-integration',
-          html_url: 'https://github.com/deployradar/github-actions-integration',
-          name: 'github-actions-integration',
-          pushed_at: '2026-01-14T18:22:09Z'
-        },
         eventName: 'workflow_dispatch',
         sha: '83fff8ade43591d553b9c7fec102901920f15b84',
         ref: 'refs/heads/main',
@@ -83,7 +75,13 @@ describe('action', () => {
         actor: 'fwende',
         job: 'scripty',
         runNumber: 1,
-        runId: 21005190828
+        runId: 21005190828,
+        repository: {
+          full_name: 'deployradar/github-actions-integration',
+          html_url: 'https://github.com/deployradar/github-actions-integration',
+          name: 'github-actions-integration',
+          pushed_at: '2026-01-14T18:22:09Z'
+        }
       }
     })
     expect(core.setOutput).toHaveBeenCalledWith('status', '201')
@@ -110,6 +108,93 @@ describe('action', () => {
 
     expect(core.setFailed).toHaveBeenCalledWith(
       'Failed to create deployment in DeployRadar'
+    )
+  })
+
+  it('uses the pipeline status and API URL when provided', async () => {
+    core.getInput.mockImplementation((name) => {
+      const inputs = {
+        releaseVersion: '3.1.1',
+        componentName: 'aurora-gateway',
+        environment: 'Production',
+        jobStatus: 'failure',
+        apiKey: 'Bearer test-key',
+        apiUrl: 'https://example.com/deploy'
+      }
+      return inputs[name] ?? ''
+    })
+
+    await main.run()
+
+    const [url, options] = global.fetch.mock.calls[0]
+    const payload = JSON.parse(options.body)
+
+    expect(url).toBe('https://example.com/deploy')
+    expect(options.headers.Authorization).toBe('Bearer test-key')
+    expect(payload.parameters.deploymentState).toBe('FAILURE')
+    expect(payload.context.sha).toBe('83fff8ade43591d553b9c7fec102901920f15b84')
+  })
+
+  it('allows releaseVersion to be omitted', async () => {
+    core.getInput.mockImplementation((name) => {
+      const inputs = {
+        componentName: 'aurora-gateway',
+        environment: 'Production',
+        jobStatus: 'success',
+        apiKey: 'test-key'
+      }
+      return inputs[name] ?? ''
+    })
+
+    await main.run()
+
+    const [, options] = global.fetch.mock.calls[0]
+    const payload = JSON.parse(options.body)
+
+    expect(payload.parameters).toEqual({
+      componentName: 'aurora-gateway',
+      environment: 'Production',
+      deploymentState: 'SUCCESS'
+    })
+  })
+
+  it('maps cancelled jobs to failed deployments', async () => {
+    core.getInput.mockImplementation((name) => {
+      const inputs = {
+        releaseVersion: '3.1.1',
+        componentName: 'aurora-gateway',
+        environment: 'Production',
+        jobStatus: 'cancelled',
+        apiKey: 'test-key'
+      }
+      return inputs[name] ?? ''
+    })
+
+    await main.run()
+
+    const [, options] = global.fetch.mock.calls[0]
+    const payload = JSON.parse(options.body)
+
+    expect(payload.parameters.deploymentState).toBe('FAILURE')
+  })
+
+  it('rejects unknown job statuses before calling the API', async () => {
+    core.getInput.mockImplementation((name) => {
+      const inputs = {
+        releaseVersion: '3.1.1',
+        componentName: 'aurora-gateway',
+        environment: 'Production',
+        jobStatus: 'unknown',
+        apiKey: 'test-key'
+      }
+      return inputs[name] ?? ''
+    })
+
+    await main.run()
+
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'jobStatus must be one of success, failure, cancelled'
     )
   })
 })

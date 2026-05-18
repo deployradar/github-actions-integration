@@ -5,20 +5,23 @@ author: DeployRadar
 inputs:
   releaseVersion:
     description: Release version to deploy (semantic version)
-    required: true
+    required: false
   componentName:
     description: Component name to deploy
     required: true
   environment:
     description: Target environment (e.g. Production)
     required: true
-  deploymentState:
-    description:
-      Deployment state (defaults to SUCCESS when previous steps succeed)
-    required: false
+  jobStatus:
+    description: Current GitHub Actions job status, usually ${{ job.status }}
+    required: true
   apiKey:
     description: DeployRadar API key used for authentication
     required: true
+  apiUrl:
+    description: DeployRadar deployment endpoint URL
+    required: false
+    default: https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions
 
 outputs:
   status:

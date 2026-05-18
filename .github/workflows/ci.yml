@@ -60,6 +60,7 @@ jobs:
           releaseVersion: '7.23.2'
           componentName: 'aurora-gateway'
           environment: 'Development'
+          jobStatus: ${{ job.status }}
           apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}
 
       - name: Print Output

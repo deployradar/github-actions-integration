@@ -1,17 +1,17 @@
 {
-  "name": "hello-world-javascript-action",
-  "description": "This action prints `Hello, World!` or `Hello, <who-to-greet>!` to the log",
+  "name": "deployradar-github-actions-integration",
+  "description": "GitHub Action for creating deployments in DeployRadar",
   "version": "1.0.0",
-  "author": "",
+  "author": "DeployRadar",
   "private": true,
   "type": "module",
-  "homepage": "https://github.com/actions/hello-world-javascript-action#readme",
+  "homepage": "https://github.com/deployradar/github-actions-integration#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/hello-world-javascript-action.git"
+    "url": "git+https://github.com/deployradar/github-actions-integration.git"
   },
   "bugs": {
-    "url": "https://github.com/actions/hello-world-javascript-action/issues"
+    "url": "https://github.com/deployradar/github-actions-integration/issues"
   },
   "keywords": [
     "GitHub",
@@ -38,7 +38,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.11.1",
+    "@actions/core": "^3.0.1",
     "@actions/github": "^9.0.0"
   },
   "devDependencies": {
@@ -54,7 +54,6 @@
     "jest": "^30.2.0",
     "make-coverage-badge": "^1.2.0",
     "prettier": "^3.6.2",
-    "prettier-eslint": "^16.4.2",
     "rollup": "^4.57.1"
   },
   "optionalDependencies": {
