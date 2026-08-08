@@ -111,3 +111,16 @@ The action produces the shared CI/CD context shape:
 
 `pipeline.pipelineId` is omitted because GitHub Actions does not expose a
 workflow-definition ID in the action context.
+
+## HTTP delivery behavior
+
+Each deployment request has a 15-second timeout and makes at most three
+attempts. The action retries only temporary delivery failures: network and
+timeout errors, plus HTTP `408`, `429`, and `5xx` responses. It does not retry
+ordinary `4xx` responses. Retry delays use exponential backoff and honour a
+valid `Retry-After` response header, up to 30 seconds.
+
+The current endpoint does not provide an idempotency contract, so it remains
+possible for an ambiguous network failure to result in a duplicate deployment.
+Supporting an idempotency key across the action and API is a potential future
+enhancement.

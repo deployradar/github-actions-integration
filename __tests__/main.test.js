@@ -37,9 +37,33 @@ describe('action', () => {
   })
 
   afterEach(() => {
+    jest.restoreAllMocks()
     jest.resetAllMocks()
     delete global.fetch
   })
+
+  function useImmediateRetryDelays() {
+    jest.spyOn(global, 'setTimeout').mockImplementation((callback) => {
+      callback()
+      return 0
+    })
+  }
+
+  function response({ status, statusText, text = '', retryAfter } = {}) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      statusText,
+      text: jest.fn().mockResolvedValue(text),
+      headers: {
+        get: jest
+          .fn()
+          .mockImplementation((name) =>
+            name.toLowerCase() === 'retry-after' ? retryAfter : null
+          )
+      }
+    }
+  }
 
   function setGitHubContext(context) {
     for (const propertyName of Object.keys(github.context)) {
@@ -108,25 +132,107 @@ describe('action', () => {
   })
 
   it('sets a failed status when the API rejects', async () => {
-    global.fetch.mockRejectedValue(new Error('network down'))
+    useImmediateRetryDelays()
+    global.fetch.mockRejectedValue(new TypeError('network down'))
 
     await main.run()
 
     expect(core.setFailed).toHaveBeenCalledWith('network down')
+    expect(global.fetch).toHaveBeenCalledTimes(3)
   })
 
   it('sets a failed status when the API returns an error', async () => {
-    global.fetch.mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      text: jest.fn().mockResolvedValue('boom')
-    })
+    global.fetch.mockResolvedValue(
+      response({
+        status: 400,
+        statusText: 'Bad Request',
+        text: 'boom'
+      })
+    )
 
     await main.run()
 
     expect(core.setFailed).toHaveBeenCalledWith(
       'Failed to create deployment in DeployRadar'
+    )
+  })
+
+  it('retries a temporary server error and completes when a later attempt succeeds', async () => {
+    useImmediateRetryDelays()
+    global.fetch
+      .mockResolvedValueOnce(
+        response({
+          status: 503,
+          statusText: 'Service Unavailable',
+          text: 'temporarily unavailable'
+        })
+      )
+      .mockResolvedValueOnce(
+        response({
+          status: 201,
+          statusText: 'Created',
+          text: '{"result":"ok"}'
+        })
+      )
+
+    await main.run()
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(core.warning).toHaveBeenCalledWith(
+      'DeployRadar API returned 503 on attempt 1 of 3; retrying in 500ms.'
+    )
+    expect(core.setOutput).toHaveBeenCalledWith('status', '201')
+  })
+
+  it('retries a timed-out request and includes a timeout signal', async () => {
+    useImmediateRetryDelays()
+    const timeout = new Error('request timed out')
+    timeout.name = 'TimeoutError'
+    global.fetch
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce(response({ status: 201, statusText: 'Created' }))
+
+    await main.run()
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(global.fetch.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
+    expect(core.setOutput).toHaveBeenCalledWith('status', '201')
+  })
+
+  it('does not retry a non-transient client error', async () => {
+    global.fetch.mockResolvedValue(
+      response({
+        status: 400,
+        statusText: 'Bad Request',
+        text: 'invalid request'
+      })
+    )
+
+    await main.run()
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Failed to create deployment in DeployRadar'
+    )
+  })
+
+  it('honours Retry-After for a rate-limited response', async () => {
+    useImmediateRetryDelays()
+    global.fetch
+      .mockResolvedValueOnce(
+        response({
+          status: 429,
+          statusText: 'Too Many Requests',
+          retryAfter: '0'
+        })
+      )
+      .mockResolvedValueOnce(response({ status: 201, statusText: 'Created' }))
+
+    await main.run()
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(core.warning).toHaveBeenCalledWith(
+      'DeployRadar API returned 429 on attempt 1 of 3; retrying in 0ms.'
     )
   })
 

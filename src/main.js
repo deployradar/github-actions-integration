@@ -6,6 +6,10 @@ const DEFAULT_DEPLOY_ENDPOINT =
 const INTEGRATION_TYPE = 'github-actions'
 const INTEGRATION_VERSION = '2.3.4'
 const SUPPORTED_EVENTS = new Set(['push', 'workflow_dispatch'])
+const REQUEST_TIMEOUT_MS = 15_000
+const MAX_REQUEST_ATTEMPTS = 3
+const RETRY_BASE_DELAY_MS = 500
+const MAX_RETRY_DELAY_MS = 30_000
 
 function getInput(name, options = {}) {
   const value = core.getInput(name) ?? ''
@@ -169,6 +173,113 @@ function compactObject(value) {
   )
 }
 
+function validateApiUrl(apiUrl) {
+  let parsedUrl
+
+  try {
+    parsedUrl = new URL(apiUrl)
+  } catch {
+    throw new Error('apiUrl must be a valid HTTP(S) URL')
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error('apiUrl must be a valid HTTP(S) URL')
+  }
+}
+
+function isRetryableResponse(response) {
+  return (
+    response.status === 408 ||
+    response.status === 429 ||
+    (response.status >= 500 && response.status <= 599)
+  )
+}
+
+function isRetryableFetchError(error) {
+  return (
+    error instanceof TypeError ||
+    error?.name === 'AbortError' ||
+    error?.name === 'TimeoutError' ||
+    error?.name === 'FetchError'
+  )
+}
+
+function retryAfterDelay(response) {
+  const retryAfter = response?.headers?.get?.('retry-after')
+
+  if (!retryAfter) {
+    return undefined
+  }
+
+  const seconds = Number(retryAfter)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1000, MAX_RETRY_DELAY_MS)
+  }
+
+  const retryAt = Date.parse(retryAfter)
+  if (!Number.isNaN(retryAt)) {
+    return Math.min(Math.max(retryAt - Date.now(), 0), MAX_RETRY_DELAY_MS)
+  }
+
+  return undefined
+}
+
+function retryDelay(attempt, response) {
+  return (
+    retryAfterDelay(response) ??
+    Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS)
+  )
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+async function postDeployment(apiUrl, authHeader, payload) {
+  validateApiUrl(apiUrl)
+
+  for (let attempt = 1; attempt <= MAX_REQUEST_ATTEMPTS; attempt += 1) {
+    let response
+
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      })
+    } catch (error) {
+      if (!isRetryableFetchError(error) || attempt === MAX_REQUEST_ATTEMPTS) {
+        throw error
+      }
+
+      const delay = retryDelay(attempt)
+      core.warning(
+        `DeployRadar request failed on attempt ${attempt} of ${MAX_REQUEST_ATTEMPTS}; retrying in ${delay}ms.`
+      )
+      await wait(delay)
+      continue
+    }
+
+    const responseText = await response.text().catch(() => '')
+
+    if (!isRetryableResponse(response) || attempt === MAX_REQUEST_ATTEMPTS) {
+      return { response, responseText }
+    }
+
+    const delay = retryDelay(attempt, response)
+    core.warning(
+      `DeployRadar API returned ${response.status} on attempt ${attempt} of ${MAX_REQUEST_ATTEMPTS}; retrying in ${delay}ms.`
+    )
+    await wait(delay)
+  }
+
+  throw new Error('DeployRadar request exhausted without a response')
+}
+
 /**
  * Sends a deployment creation request to DeployRadar.
  * @returns {Promise<void>} Resolves when the deployment request completes.
@@ -218,16 +329,11 @@ export async function run() {
       ? apiKey
       : `Bearer ${apiKey}`
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: authHeader
-      },
-      body: JSON.stringify(payload)
-    })
-
-    const responseText = await response.text().catch(() => '')
+    const { response, responseText } = await postDeployment(
+      apiUrl,
+      authHeader,
+      payload
+    )
 
     if (!response.ok) {
       core.error(
