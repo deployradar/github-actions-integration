@@ -1,0 +1,8 @@
+{
+  "ref": "refs/heads/main",
+  "repository": {
+    "full_name": "deployradar/github-actions-integration",
+    "html_url": "https://github.com/deployradar/github-actions-integration",
+    "name": "github-actions-integration"
+  }
+}

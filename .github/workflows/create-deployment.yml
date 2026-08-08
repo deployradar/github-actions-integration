@@ -2,6 +2,12 @@ name: DeployRadar Integration Example
 
 on:
   workflow_dispatch:
+    inputs:
+      apiUrl:
+        description: DeployRadar deployment ingestion endpoint
+        required: true
+        type: string
+        default: https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions
 
 permissions:
   actions: read
@@ -16,7 +22,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Deploy via DeployRadar
+      - name: Send example payload to DeployRadar
+        id: deployradar
+        if: ${{ always() }}
         uses: ./
         with:
           releaseVersion: '7.23.2'
@@ -24,3 +32,8 @@ jobs:
           environment: 'Development'
           jobStatus: ${{ job.status }}
           apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}
+          apiUrl: ${{ inputs.apiUrl }}
+
+      - name: Print deployment result
+        run: |
+          echo "DeployRadar HTTP status: ${{ steps.deployradar.outputs.status }}"

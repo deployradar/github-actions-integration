@@ -28191,6 +28191,14 @@ function error(message, properties = {}) {
     issueCommand('error', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
+ * Adds a warning issue
+ * @param message warning issue message. Errors will be converted to string via toString()
+ * @param properties optional properties to add to the annotation.
+ */
+function warning(message, properties = {}) {
+    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+}
+/**
  * Writes info to log with console.log.
  * @param message info message
  */
@@ -33097,7 +33105,13 @@ const context = new Context();
 
 const DEFAULT_DEPLOY_ENDPOINT =
   'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions';
-const INTEGRATION_VERSION = 'v0.0.1';
+const INTEGRATION_TYPE = 'github-actions';
+const INTEGRATION_VERSION = '2.3.4';
+const SUPPORTED_EVENTS = new Set(['push', 'workflow_dispatch']);
+const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_REQUEST_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 500;
+const MAX_RETRY_DELAY_MS = 30_000;
 
 function getInput(name, options = {}) {
   const value = getInput$1(name) ?? '';
@@ -33126,20 +33140,99 @@ function resolveDeploymentState(jobStatus) {
   throw new Error('jobStatus must be one of success, failure, cancelled')
 }
 
+function branchNameFromRef(ref) {
+  return (ref ?? '').replace(/^refs\/(?:heads|tags)\//, '')
+}
+
+function buildRunUri(repository, serverUrl, runId) {
+  if (!runId) {
+    return ''
+  }
+
+  const repositoryUrl =
+    repository?.html_url ||
+    (repository?.full_name && serverUrl
+      ? `${serverUrl}/${repository.full_name}`
+      : '');
+
+  return repositoryUrl ? `${repositoryUrl}/actions/runs/${runId}` : ''
+}
+
 function buildGitHubContext() {
   const repository = context.payload?.repository ?? null;
+  const headCommit = context.payload?.head_commit ?? null;
 
   return {
-    eventName: context.eventName,
-    sha: context.sha,
-    ref: context.ref,
-    workflow: context.workflow,
-    action: context.action,
-    actor: context.actor,
-    job: context.job,
-    runNumber: context.runNumber,
-    runId: context.runId,
-    repository: repository || undefined
+    repository: {
+      full_name: repository?.full_name,
+      html_url: repository?.html_url,
+      name: repository?.name
+    },
+    source: {
+      branch: context.ref,
+      branchName: branchNameFromRef(context.ref),
+      sha: context.sha,
+      // Available for push events only; workflow_dispatch does not include it.
+      commitMessage: headCommit?.message,
+      commitDateTime: headCommit?.timestamp
+    },
+    pipeline: {
+      // GitHub Actions context exposes the workflow name but not its numeric ID.
+      name: context.workflow,
+      runId: String(context.runId ?? ''),
+      runNumber: String(context.runNumber ?? ''),
+      runUri: buildRunUri(
+        repository,
+        context.serverUrl,
+        context.runId
+      ),
+      eventName: context.eventName,
+      actor: context.actor,
+      jobName: context.job
+    }
+  }
+}
+
+function validateTrigger() {
+  const eventName = context.eventName;
+
+  if (!SUPPORTED_EVENTS.has(eventName)) {
+    throw new Error(
+      `Unsupported GitHub event "${eventName}". Supported events are push and workflow_dispatch.`
+    )
+  }
+
+  if (eventName === 'push' && context.payload?.deleted === true) {
+    throw new Error('Push events that delete a branch or tag are not supported')
+  }
+}
+
+function getMissingRequiredContextFields(context) {
+  const requiredFields = [
+    ['repository.full_name', context.repository.full_name],
+    ['repository.html_url', context.repository.html_url],
+    ['repository.name', context.repository.name],
+    ['source.branch', context.source.branch],
+    ['source.branchName', context.source.branchName],
+    ['source.sha', context.source.sha],
+    ['pipeline.runId', context.pipeline.runId],
+    ['pipeline.runNumber', context.pipeline.runNumber],
+    ['pipeline.runUri', context.pipeline.runUri],
+    ['pipeline.jobName', context.pipeline.jobName]
+  ];
+
+  return requiredFields
+    .filter(([, value]) => typeof value !== 'string' || !value.trim())
+    .map(([fieldName]) => fieldName)
+}
+
+function validateRequiredContext(context) {
+  const missingFields = getMissingRequiredContextFields(context);
+
+  if (missingFields.length) {
+    throw new Error(
+      `Missing required GitHub Actions context fields: ${missingFields.join(', ')}`
+    )
   }
 }
 
@@ -33152,6 +33245,7 @@ function buildDeploymentPayload({
 }) {
   return {
     integration: {
+      type: INTEGRATION_TYPE,
       version: INTEGRATION_VERSION,
       timestamp: new Date().toISOString()
     },
@@ -33181,6 +33275,113 @@ function compactObject(value) {
   )
 }
 
+function validateApiUrl(apiUrl) {
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(apiUrl);
+  } catch {
+    throw new Error('apiUrl must be a valid HTTP(S) URL')
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error('apiUrl must be a valid HTTP(S) URL')
+  }
+}
+
+function isRetryableResponse(response) {
+  return (
+    response.status === 408 ||
+    response.status === 429 ||
+    (response.status >= 500 && response.status <= 599)
+  )
+}
+
+function isRetryableFetchError(error) {
+  return (
+    error instanceof TypeError ||
+    error?.name === 'AbortError' ||
+    error?.name === 'TimeoutError' ||
+    error?.name === 'FetchError'
+  )
+}
+
+function retryAfterDelay(response) {
+  const retryAfter = response?.headers?.get?.('retry-after');
+
+  if (!retryAfter) {
+    return undefined
+  }
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1000, MAX_RETRY_DELAY_MS)
+  }
+
+  const retryAt = Date.parse(retryAfter);
+  if (!Number.isNaN(retryAt)) {
+    return Math.min(Math.max(retryAt - Date.now(), 0), MAX_RETRY_DELAY_MS)
+  }
+
+  return undefined
+}
+
+function retryDelay(attempt, response) {
+  return (
+    retryAfterDelay(response) ??
+    Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS)
+  )
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+async function postDeployment(apiUrl, authHeader, payload) {
+  validateApiUrl(apiUrl);
+
+  for (let attempt = 1; attempt <= MAX_REQUEST_ATTEMPTS; attempt += 1) {
+    let response;
+
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      });
+    } catch (error) {
+      if (!isRetryableFetchError(error) || attempt === MAX_REQUEST_ATTEMPTS) {
+        throw error
+      }
+
+      const delay = retryDelay(attempt);
+      warning(
+        `DeployRadar request failed on attempt ${attempt} of ${MAX_REQUEST_ATTEMPTS}; retrying in ${delay}ms.`
+      );
+      await wait(delay);
+      continue
+    }
+
+    const responseText = await response.text().catch(() => '');
+
+    if (!isRetryableResponse(response) || attempt === MAX_REQUEST_ATTEMPTS) {
+      return { response, responseText }
+    }
+
+    const delay = retryDelay(attempt, response);
+    warning(
+      `DeployRadar API returned ${response.status} on attempt ${attempt} of ${MAX_REQUEST_ATTEMPTS}; retrying in ${delay}ms.`
+    );
+    await wait(delay);
+  }
+
+  throw new Error('DeployRadar request exhausted without a response')
+}
+
 /**
  * Sends a deployment creation request to DeployRadar.
  * @returns {Promise<void>} Resolves when the deployment request completes.
@@ -33200,12 +33401,15 @@ async function run() {
       throw new Error('apiKey input is empty')
     }
 
+    validateTrigger();
+
     const deploymentState = resolveDeploymentState(jobStatus);
     const context = buildGitHubContext();
+    validateRequiredContext(context);
 
     debug(`jobStatus: ${jobStatus}`);
     debug(`deploymentState: ${deploymentState}`);
-    debug(`context sha: ${context?.sha ?? 'unknown'}`);
+    debug(`context sha: ${context.source?.sha ?? 'unknown'}`);
 
     const payload = compactObject(
       buildDeploymentPayload({
@@ -33220,23 +33424,18 @@ async function run() {
     debug(`payload: ${JSON.stringify(payload)}`);
 
     info(
-      `Creating deployment for component ${componentName} (${releaseVersion || context.sha}) in ${environment}`
+      `Creating deployment for component ${componentName} (${releaseVersion || context.source?.sha}) in ${environment}`
     );
 
     const authHeader = apiKey.startsWith('Bearer ')
       ? apiKey
       : `Bearer ${apiKey}`;
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: authHeader
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const responseText = await response.text().catch(() => '');
+    const { response, responseText } = await postDeployment(
+      apiUrl,
+      authHeader,
+      payload
+    );
 
     if (!response.ok) {
       error(
