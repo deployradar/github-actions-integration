@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       apiUrl:
-        description: Webhook endpoint that receives the example payload
+        description: DeployRadar deployment ingestion endpoint
         required: true
         type: string
-        default: https://webhook.site/70cd24be-6fe2-40a8-9aec-21a1f1199ce2
+        default: https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions
 
 permissions:
   actions: read
@@ -22,7 +22,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Send example payload to webhook.site
+      - name: Send example payload to DeployRadar
         id: deployradar
         if: ${{ always() }}
         uses: ./
