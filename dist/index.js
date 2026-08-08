@@ -33099,6 +33099,7 @@ const DEFAULT_DEPLOY_ENDPOINT =
   'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions';
 const INTEGRATION_TYPE = 'github-actions';
 const INTEGRATION_VERSION = '2.3.4';
+const SUPPORTED_EVENTS = new Set(['push', 'workflow_dispatch']);
 
 function getInput(name, options = {}) {
   const value = getInput$1(name) ?? '';
@@ -33145,34 +33146,15 @@ function buildRunUri(repository, serverUrl, runId) {
   return repositoryUrl ? `${repositoryUrl}/actions/runs/${runId}` : ''
 }
 
-function buildRepository(repository) {
-  const repositoryFullName =
-    repository?.full_name ||
-    (context.repo?.owner && context.repo?.repo
-      ? `${context.repo.owner}/${context.repo.repo}`
-      : '');
-  const serverUrl = (context.serverUrl ?? '').replace(/\/+$/, '');
-
-  return {
-    full_name: repositoryFullName,
-    html_url:
-      repository?.html_url ||
-      (repositoryFullName && serverUrl
-        ? `${serverUrl}/${repositoryFullName}`
-        : ''),
-    name: repository?.name || context.repo?.repo
-  }
-}
-
 function buildGitHubContext() {
-  const repository = buildRepository(context.payload?.repository);
+  const repository = context.payload?.repository ?? null;
   const headCommit = context.payload?.head_commit ?? null;
 
   return {
     repository: {
-      full_name: repository.full_name,
-      html_url: repository.html_url,
-      name: repository.name
+      full_name: repository?.full_name,
+      html_url: repository?.html_url,
+      name: repository?.name
     },
     source: {
       branch: context.ref,
@@ -33196,6 +33178,49 @@ function buildGitHubContext() {
       actor: context.actor,
       jobName: context.job
     }
+  }
+}
+
+function validateTrigger() {
+  const eventName = context.eventName;
+
+  if (!SUPPORTED_EVENTS.has(eventName)) {
+    throw new Error(
+      `Unsupported GitHub event "${eventName}". Supported events are push and workflow_dispatch.`
+    )
+  }
+
+  if (eventName === 'push' && context.payload?.deleted === true) {
+    throw new Error('Push events that delete a branch or tag are not supported')
+  }
+}
+
+function getMissingRequiredContextFields(context) {
+  const requiredFields = [
+    ['repository.full_name', context.repository.full_name],
+    ['repository.html_url', context.repository.html_url],
+    ['repository.name', context.repository.name],
+    ['source.branch', context.source.branch],
+    ['source.branchName', context.source.branchName],
+    ['source.sha', context.source.sha],
+    ['pipeline.runId', context.pipeline.runId],
+    ['pipeline.runNumber', context.pipeline.runNumber],
+    ['pipeline.runUri', context.pipeline.runUri],
+    ['pipeline.jobName', context.pipeline.jobName]
+  ];
+
+  return requiredFields
+    .filter(([, value]) => typeof value !== 'string' || !value.trim())
+    .map(([fieldName]) => fieldName)
+}
+
+function validateRequiredContext(context) {
+  const missingFields = getMissingRequiredContextFields(context);
+
+  if (missingFields.length) {
+    throw new Error(
+      `Missing required GitHub Actions context fields: ${missingFields.join(', ')}`
+    )
   }
 }
 
@@ -33257,8 +33282,11 @@ async function run() {
       throw new Error('apiKey input is empty')
     }
 
+    validateTrigger();
+
     const deploymentState = resolveDeploymentState(jobStatus);
     const context = buildGitHubContext();
+    validateRequiredContext(context);
 
     debug(`jobStatus: ${jobStatus}`);
     debug(`deploymentState: ${deploymentState}`);

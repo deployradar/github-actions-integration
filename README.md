@@ -70,16 +70,12 @@ The action supports deployment workflows triggered by the following events:
 | Trigger             | Support                 | Source metadata sent to DeployRadar                                                                                    |
 | ------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `workflow_dispatch` | Supported               | The branch or tag selected when the workflow is manually started and its latest commit.                                |
-| `push`              | Supported               | The pushed branch or tag and its tip commit. Do not invoke the action for a deleted branch or tag.                     |
+| `push`              | Supported               | The pushed branch or tag and its tip commit. The action rejects deleted branch and tag events.                         |
 | `workflow_call`     | Supported conditionally | The called workflow inherits the caller's event metadata. Its caller must use one of the two supported triggers above. |
 
-For `push`, guard the DeployRadar step against ref deletions. GitHub otherwise
-uses the default branch SHA and ref for a deleted branch, which would report an
-incorrect source.
-
-```yaml
-if: ${{ always() && !github.event.deleted }}
-```
+The action validates the trigger and required GitHub context before sending a
+request. It rejects unsupported triggers, deleted branch/tag pushes, and any
+payload that does not contain the required repository, source, and run fields.
 
 The following triggers are **not supported** by this action at present:
 

@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, jest } from '@jest/globals'
 const core = await import('../__fixtures__/core')
 const github = await import('../__fixtures__/github')
+const defaultGitHubContext = structuredClone(github.context)
 
 jest.unstable_mockModule('@actions/core', () => core)
 jest.unstable_mockModule('@actions/github', () => github)
@@ -12,6 +13,8 @@ const main = await import('../src/main')
 
 describe('action', () => {
   beforeEach(() => {
+    Object.assign(github.context, structuredClone(defaultGitHubContext))
+
     core.getInput.mockImplementation((name) => {
       const inputs = {
         releaseVersion: '3.1.1',
@@ -203,6 +206,40 @@ describe('action', () => {
     expect(global.fetch).not.toHaveBeenCalled()
     expect(core.setFailed).toHaveBeenCalledWith(
       'jobStatus must be one of success, failure, cancelled'
+    )
+  })
+
+  it('rejects unsupported workflow triggers before calling the API', async () => {
+    github.context.eventName = 'schedule'
+
+    await main.run()
+
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Unsupported GitHub event "schedule". Supported events are push and workflow_dispatch.'
+    )
+  })
+
+  it('rejects push events that delete a ref before calling the API', async () => {
+    github.context.eventName = 'push'
+    github.context.payload.deleted = true
+
+    await main.run()
+
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Push events that delete a branch or tag are not supported'
+    )
+  })
+
+  it('rejects a payload that omits required repository context', async () => {
+    github.context.payload.repository.html_url = ''
+
+    await main.run()
+
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Missing required GitHub Actions context fields: repository.html_url, pipeline.runUri'
     )
   })
 })
