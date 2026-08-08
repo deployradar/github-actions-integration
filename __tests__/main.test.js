@@ -4,6 +4,8 @@
 import { afterEach, beforeEach, jest } from '@jest/globals'
 const core = await import('../__fixtures__/core')
 const github = await import('../__fixtures__/github')
+const { deletedPushContext, pushContext, workflowCallFromPushContext } =
+  await import('../__fixtures__/github-contexts')
 const defaultGitHubContext = structuredClone(github.context)
 
 jest.unstable_mockModule('@actions/core', () => core)
@@ -13,7 +15,7 @@ const main = await import('../src/main')
 
 describe('action', () => {
   beforeEach(() => {
-    Object.assign(github.context, structuredClone(defaultGitHubContext))
+    setGitHubContext(defaultGitHubContext)
 
     core.getInput.mockImplementation((name) => {
       const inputs = {
@@ -38,6 +40,14 @@ describe('action', () => {
     jest.resetAllMocks()
     delete global.fetch
   })
+
+  function setGitHubContext(context) {
+    for (const propertyName of Object.keys(github.context)) {
+      delete github.context[propertyName]
+    }
+
+    Object.assign(github.context, structuredClone(context))
+  }
 
   it('calls the DeployRadar API', async () => {
     await main.run()
@@ -221,8 +231,7 @@ describe('action', () => {
   })
 
   it('rejects push events that delete a ref before calling the API', async () => {
-    github.context.eventName = 'push'
-    github.context.payload.deleted = true
+    setGitHubContext(deletedPushContext)
 
     await main.run()
 
@@ -240,6 +249,44 @@ describe('action', () => {
     expect(global.fetch).not.toHaveBeenCalled()
     expect(core.setFailed).toHaveBeenCalledWith(
       'Missing required GitHub Actions context fields: repository.html_url, pipeline.runUri'
+    )
+  })
+
+  it('maps commit metadata from a normal push', async () => {
+    setGitHubContext(pushContext)
+
+    await main.run()
+
+    const [, options] = global.fetch.mock.calls[0]
+    const payload = JSON.parse(options.body)
+
+    expect(payload.context.source).toEqual({
+      branch: 'refs/heads/main',
+      branchName: 'main',
+      sha: 'c9976f8f9bf3f0f2c0ab45a744a6e2c6c143b387',
+      commitMessage: 'Deploy aurora gateway',
+      commitDateTime: '2026-08-08T13:30:00Z'
+    })
+    expect(payload.context.pipeline.eventName).toBe('push')
+  })
+
+  it('uses the caller context in a reusable workflow', async () => {
+    setGitHubContext(workflowCallFromPushContext)
+
+    await main.run()
+
+    const [, options] = global.fetch.mock.calls[0]
+    const payload = JSON.parse(options.body)
+
+    expect(payload.context.pipeline).toMatchObject({
+      name: 'Caller deployment workflow',
+      eventName: 'push',
+      jobName: 'deploy-from-reusable-workflow',
+      runId: '21005190830',
+      runNumber: '43'
+    })
+    expect(payload.context.source.sha).toBe(
+      'c9976f8f9bf3f0f2c0ab45a744a6e2c6c143b387'
     )
   })
 })

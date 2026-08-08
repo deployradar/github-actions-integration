@@ -31,11 +31,9 @@ jobs:
           componentName: 'aurora-gateway'
           environment: 'Development'
           jobStatus: ${{ job.status }}
-          # The webhook endpoint does not authenticate requests. This value is
-          # deliberately non-sensitive because the action requires an API key.
-          apiKey: webhook-site-example
+          apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}
           apiUrl: ${{ inputs.apiUrl }}
 
-      - name: Print webhook result
+      - name: Print deployment result
         run: |
-          echo "Webhook HTTP status: ${{ steps.deployradar.outputs.status }}"
+          echo "DeployRadar HTTP status: ${{ steps.deployradar.outputs.status }}"
