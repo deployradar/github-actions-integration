@@ -57,7 +57,8 @@ describe('action', () => {
     const payload = JSON.parse(options.body)
     expect(payload).toMatchObject({
       integration: {
-        version: 'v0.0.1',
+        type: 'github-actions',
+        version: '2.3.4',
         timestamp: expect.any(String)
       },
       parameters: {
@@ -67,20 +68,25 @@ describe('action', () => {
         deploymentState: 'SUCCESS'
       },
       context: {
-        eventName: 'workflow_dispatch',
-        sha: '83fff8ade43591d553b9c7fec102901920f15b84',
-        ref: 'refs/heads/main',
-        workflow: 'scripty',
-        action: 'script',
-        actor: 'fwende',
-        job: 'scripty',
-        runNumber: 1,
-        runId: 21005190828,
         repository: {
           full_name: 'deployradar/github-actions-integration',
           html_url: 'https://github.com/deployradar/github-actions-integration',
-          name: 'github-actions-integration',
-          pushed_at: '2026-01-14T18:22:09Z'
+          name: 'github-actions-integration'
+        },
+        source: {
+          branch: 'refs/heads/main',
+          branchName: 'main',
+          sha: '83fff8ade43591d553b9c7fec102901920f15b84'
+        },
+        pipeline: {
+          name: 'scripty',
+          runId: '21005190828',
+          runNumber: '1',
+          runUri:
+            'https://github.com/deployradar/github-actions-integration/actions/runs/21005190828',
+          eventName: 'workflow_dispatch',
+          actor: 'fwende',
+          jobName: 'scripty'
         }
       }
     })
@@ -132,7 +138,9 @@ describe('action', () => {
     expect(url).toBe('https://example.com/deploy')
     expect(options.headers.Authorization).toBe('Bearer test-key')
     expect(payload.parameters.deploymentState).toBe('FAILURE')
-    expect(payload.context.sha).toBe('83fff8ade43591d553b9c7fec102901920f15b84')
+    expect(payload.context.source.sha).toBe(
+      '83fff8ade43591d553b9c7fec102901920f15b84'
+    )
   })
 
   it('allows releaseVersion to be omitted', async () => {

@@ -33097,7 +33097,8 @@ const context = new Context();
 
 const DEFAULT_DEPLOY_ENDPOINT =
   'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions';
-const INTEGRATION_VERSION = 'v0.0.1';
+const INTEGRATION_TYPE = 'github-actions';
+const INTEGRATION_VERSION = '2.3.4';
 
 function getInput(name, options = {}) {
   const value = getInput$1(name) ?? '';
@@ -33126,20 +33127,75 @@ function resolveDeploymentState(jobStatus) {
   throw new Error('jobStatus must be one of success, failure, cancelled')
 }
 
-function buildGitHubContext() {
-  const repository = context.payload?.repository ?? null;
+function branchNameFromRef(ref) {
+  return (ref ?? '').replace(/^refs\/(?:heads|tags)\//, '')
+}
+
+function buildRunUri(repository, serverUrl, runId) {
+  if (!runId) {
+    return ''
+  }
+
+  const repositoryUrl =
+    repository?.html_url ||
+    (repository?.full_name && serverUrl
+      ? `${serverUrl}/${repository.full_name}`
+      : '');
+
+  return repositoryUrl ? `${repositoryUrl}/actions/runs/${runId}` : ''
+}
+
+function buildRepository(repository) {
+  const repositoryFullName =
+    repository?.full_name ||
+    (context.repo?.owner && context.repo?.repo
+      ? `${context.repo.owner}/${context.repo.repo}`
+      : '');
+  const serverUrl = (context.serverUrl ?? '').replace(/\/+$/, '');
 
   return {
-    eventName: context.eventName,
-    sha: context.sha,
-    ref: context.ref,
-    workflow: context.workflow,
-    action: context.action,
-    actor: context.actor,
-    job: context.job,
-    runNumber: context.runNumber,
-    runId: context.runId,
-    repository: repository || undefined
+    full_name: repositoryFullName,
+    html_url:
+      repository?.html_url ||
+      (repositoryFullName && serverUrl
+        ? `${serverUrl}/${repositoryFullName}`
+        : ''),
+    name: repository?.name || context.repo?.repo
+  }
+}
+
+function buildGitHubContext() {
+  const repository = buildRepository(context.payload?.repository);
+  const headCommit = context.payload?.head_commit ?? null;
+
+  return {
+    repository: {
+      full_name: repository.full_name,
+      html_url: repository.html_url,
+      name: repository.name
+    },
+    source: {
+      branch: context.ref,
+      branchName: branchNameFromRef(context.ref),
+      sha: context.sha,
+      // Available for push events only; workflow_dispatch does not include it.
+      commitMessage: headCommit?.message,
+      commitDateTime: headCommit?.timestamp
+    },
+    pipeline: {
+      // GitHub Actions context exposes the workflow name but not its numeric ID.
+      name: context.workflow,
+      runId: String(context.runId ?? ''),
+      runNumber: String(context.runNumber ?? ''),
+      runUri: buildRunUri(
+        repository,
+        context.serverUrl,
+        context.runId
+      ),
+      eventName: context.eventName,
+      actor: context.actor,
+      jobName: context.job
+    }
   }
 }
 
@@ -33152,6 +33208,7 @@ function buildDeploymentPayload({
 }) {
   return {
     integration: {
+      type: INTEGRATION_TYPE,
       version: INTEGRATION_VERSION,
       timestamp: new Date().toISOString()
     },
@@ -33205,7 +33262,7 @@ async function run() {
 
     debug(`jobStatus: ${jobStatus}`);
     debug(`deploymentState: ${deploymentState}`);
-    debug(`context sha: ${context?.sha ?? 'unknown'}`);
+    debug(`context sha: ${context.source?.sha ?? 'unknown'}`);
 
     const payload = compactObject(
       buildDeploymentPayload({
@@ -33220,7 +33277,7 @@ async function run() {
     debug(`payload: ${JSON.stringify(payload)}`);
 
     info(
-      `Creating deployment for component ${componentName} (${releaseVersion || context.sha}) in ${environment}`
+      `Creating deployment for component ${componentName} (${releaseVersion || context.source?.sha}) in ${environment}`
     );
 
     const authHeader = apiKey.startsWith('Bearer ')

@@ -2,6 +2,12 @@ name: DeployRadar Integration Example
 
 on:
   workflow_dispatch:
+    inputs:
+      apiUrl:
+        description: Webhook endpoint that receives the example payload
+        required: true
+        type: string
+        default: https://webhook.site/70cd24be-6fe2-40a8-9aec-21a1f1199ce2
 
 permissions:
   actions: read
@@ -16,11 +22,20 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Deploy via DeployRadar
+      - name: Send example payload to webhook.site
+        id: deployradar
+        if: ${{ always() }}
         uses: ./
         with:
           releaseVersion: '7.23.2'
           componentName: 'aurora-gateway'
           environment: 'Development'
           jobStatus: ${{ job.status }}
-          apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}
+          # The webhook endpoint does not authenticate requests. This value is
+          # deliberately non-sensitive because the action requires an API key.
+          apiKey: webhook-site-example
+          apiUrl: ${{ inputs.apiUrl }}
+
+      - name: Print webhook result
+        run: |
+          echo "Webhook HTTP status: ${{ steps.deployradar.outputs.status }}"
