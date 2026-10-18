@@ -61,9 +61,36 @@ canonical source and distribution. No npm package publication is required. Exact
 alpha tag: `v0.1.0-alpha.1`; no moving major tag is created during alpha.
 
 The release workflow validates the source and prepares draft release notes.
-Publication, an independent exact-tag consumer test, and credential cleanup are
-recorded in a follow-up once complete. Marketplace agreement acceptance, if
-outstanding, must be completed by the organization owner.
+[PR #37](https://github.com/deployradar/github-actions-integration/pull/37)
+merged after CI and CodeQL passed. The public tag points to
+`ba3948f24f70ca4521f780140945fed2dbe86812`.
+
+[Release validation 39113978989](https://github.com/deployradar/github-actions-integration/actions/runs/39113978989)
+passed and prepared the draft. The
+[alpha release](https://github.com/deployradar/github-actions-integration/releases/tag/v0.1.0-alpha.1)
+was published as a prerelease on 2026-10-18. Anonymous access to its tagged
+metadata was verified. A tag ruleset blocks updating or deleting exact version
+tags matching `v*.*.*`; future moving major tags remain possible.
+
+[Separate consumer run 39113980277](https://github.com/deployradar/github-actions-integration-tests/actions/runs/39113980277)
+passed using `deployradar/github-actions-integration@v0.1.0-alpha.1`, without
+building or checking out the integration locally. Both deliveries returned
+HTTP 200. Authenticated reads verified SUCCESS/FAILURE, version, consumer
+repository, branch, event and native run URL. Consumer records:
+`aae52950-808e-4e4c-aa07-fee1835b5d62` (SUCCESS) and
+`c0a858c3-7d4e-4137-9dc7-2f556fae401f` (FAILURE).
+
+Both temporary `DEPLOYRADAR_DEV_TEST_API_KEY` repository secrets were removed
+and the scoped API key was revoked. The pre-existing source repository secret
+was left unchanged. Both workflow logs were checked for the unmasked temporary
+key; none was found. No task-owned development server or runner process was
+started.
+
+**Marketplace listing is still pending.** The built-in browser is signed out of
+GitHub. After sign-in, edit the existing release, validate the name/category and
+select Marketplace publication. Agreement acceptance, if outstanding, must be
+completed by the organization owner. The action is already usable through its
+public exact-tag reference.
 
 Safe evidence is in [alpha-evidence](alpha-evidence/). No account passwords, API
 keys, GitHub tokens, or runner credentials are included.
