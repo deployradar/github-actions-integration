@@ -12,19 +12,19 @@
 
 ## Validate before publication
 
-- [ ] Run Node 24 unit tests, lint, format checks, and real-bundle mock tests.
-- [ ] Build and commit `dist/index.js`; require a clean rebuild in CI.
-- [ ] Test real dev success/failure delivery with a fresh scoped API key.
-- [ ] Independently verify HTTP status, saved state, version, and native
+- [x] Run Node 24 unit tests, lint, format checks, and real-bundle mock tests.
+- [x] Build and commit `dist/index.js`; require a clean rebuild in CI.
+- [x] Test real dev success/failure delivery with a fresh scoped API key.
+- [x] Independently verify HTTP status, saved state, version, and native
       context.
-- [ ] Remove the temporary Actions secret and revoke its API key.
-- [ ] Review the complete Git history and current files for credentials or
+- [x] Remove the temporary Actions secret and revoke its API key.
+- [x] Review the complete Git history and current files for credentials or
       private data.
-- [ ] Merge the reviewed release PR into `main`.
-- [ ] Tag that commit `v0.1.0-alpha.1`; run release checks and prepare draft
+- [x] Merge the reviewed release PR into `main`.
+- [x] Tag that commit `v0.1.0-alpha.1`; run release checks and prepare draft
       notes.
-- [ ] Confirm public visibility, then make this repository public.
-- [ ] Run a separate consumer workflow against the exact release tag.
+- [x] Confirm public visibility, then make this repository public.
+- [x] Run a separate consumer workflow against the exact release tag.
 
 ## Marketplace owner steps
 
