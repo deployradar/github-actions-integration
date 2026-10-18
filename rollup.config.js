@@ -5,7 +5,9 @@ import { nodeResolve } from '@rollup/plugin-node-resolve'
 
 const config = {
   input: 'src/index.js',
+  external: ['../package.json'],
   output: {
+    importAttributesKey: 'with',
     esModule: true,
     file: 'dist/index.js',
     format: 'es',

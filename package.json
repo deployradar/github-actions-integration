@@ -1,7 +1,7 @@
 {
   "name": "deployradar-github-actions-integration",
   "description": "GitHub Action for creating deployments in DeployRadar",
-  "version": "1.0.0",
+  "version": "0.1.0-alpha.1",
   "author": "DeployRadar",
   "private": true,
   "type": "module",
@@ -22,7 +22,7 @@
     ".": "./dist/index.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "bundle": "npm run format:write && npm run package",
@@ -33,6 +33,8 @@
     "lint": "npx eslint .",
     "package": "npx rollup --config rollup.config.js",
     "package:watch": "npm run package -- --watch",
+    "release:check": "node scripts/check-release.mjs",
+    "test:bundle": "node --test test/bundle.test.mjs",
     "test": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest",
     "all": "npm run format:write && npm run lint && npm run test && npm run coverage && npm run package"
   },

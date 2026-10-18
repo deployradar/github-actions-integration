@@ -4,10 +4,15 @@ This GitHub Action triggers the DeployRadar public API to register a deployment
 for a component and environment, with GitHub Actions metadata captured from the
 current workflow run.
 
-The action posts to the current DeployRadar deployment ingestion endpoint,
-`https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions`,
-using the GitHub Actions-specific `GithubActionsDeploymentRequest` payload
-expected by the API.
+The alpha reports to the DeployRadar **development** API at
+`https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/cicd-unified`. It
+sends the shared `integration`, `parameters`, and `context` contract with
+`integration.type=github-actions`. There are no legacy routes or endpoint
+fallbacks. Do not use this alpha for production deployment reporting.
+
+GitHub hosts both the source and the action runtime in this repository.
+Consumers do not install an npm package. GitHub executes the checked-in
+`dist/index.js` using its Node 24 action runtime.
 
 ## Usage
 
@@ -40,7 +45,7 @@ jobs:
 
       - name: Trigger DeployRadar deployment
         if: ${{ always() }}
-        uses: release-tracker/deployradar-action@main
+        uses: deployradar/github-actions-integration@v0.1.0-alpha.1
         with:
           releaseVersion: ${{ inputs.releaseVersion }}
           componentName: ${{ inputs.componentName }}
@@ -94,10 +99,9 @@ revision.
 
 ## Outputs
 
-| Output     | Description                                    |
-| ---------- | ---------------------------------------------- |
-| `status`   | HTTP status code returned by DeployRadar       |
-| `response` | Raw response body when the API returns content |
+| Output   | Description                              |
+| -------- | ---------------------------------------- |
+| `status` | HTTP status code returned by DeployRadar |
 
 ## Captured GitHub Metadata
 
@@ -124,3 +128,50 @@ The current endpoint does not provide an idempotency contract, so it remains
 possible for an ambiguous network failure to result in a duplicate deployment.
 Supporting an idempotency key across the action and API is a potential future
 enhancement.
+
+## Versions and publication
+
+The first release is `v0.1.0-alpha.1`. Use an exact version tag, or pin the
+reviewed release commit SHA for stronger supply-chain control. There is no
+moving major tag during alpha; `v1` will be introduced with the first stable 1.x
+release. The integration reports the version from `package.json`.
+
+The Marketplace display name is **DeployRadar Deployment**. A Marketplace
+listing helps discovery; the `uses:` reference addresses this repository and
+works independently of a listing once the repository is public.
+
+Tag pushes run the release checks and prepare a draft GitHub Release. The checks
+verify the version, endpoint, MIT license, committed runtime bundle, and that
+the tagged source belongs to `main`. Only alpha versions may default to dev. A
+future stable release requires the confirmed production endpoint in
+`action.yml`, the runtime, and `package.json.deployradar.productionApiUrl`. The
+repository owner completes Marketplace agreement and publication steps as
+described in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+## Testing and credentials
+
+Routine CI uses mocks and the actual built bundle with a loopback HTTP receiver.
+It never needs a DeployRadar key or sends requests to dev. Unit tests cover
+push, manual and reusable-workflow context, rejected triggers, retries, status
+mapping, and secret-safe error reporting. Bundle tests cover success, failure,
+cancellation mapping, and redirect refusal.
+
+For an explicitly authorized dev run, create a short-lived API key restricted to
+the placeholder component, environment, and DEPLOYMENT operation. Store it as
+`DEPLOYRADAR_API_KEY` in the test repository's Actions secrets. Dispatch
+**Development API validation** with those resource names. It tests actual
+successful and failed jobs; an independent job requires HTTP 200 evidence from
+both. Read the deployments through the app API to verify persisted context.
+Remove the secret and revoke the key afterward.
+
+Before publishing, repeat consumption from a separate repository using the exact
+release tag. Ordinary users need only their own scoped DeployRadar API key in a
+GitHub secret. The API key is masked; response bodies are neither logged nor
+exposed as action outputs. Redirects are rejected. `apiUrl` is an explicit
+destination override for testing or a different deployment, not a failover
+route.
+
+Development testing on GitLab previously identified two backend defects:
+deployment reads can fail after their creating API key is deleted, and dev can
+still generate an incorrect deployment-run link. Capture safe evidence before
+credential cleanup and report these separately from action delivery results.

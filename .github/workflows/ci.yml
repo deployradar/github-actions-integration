@@ -1,68 +1,24 @@
 name: Continuous Integration
-
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
-    branches:
-      - main
-
+    branches: [main]
 permissions:
   contents: read
-
 jobs:
-  test-javascript:
-    name: JavaScript Tests
+  verify:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        id: checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        id: setup-node
-        uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version-file: .node-version
           cache: npm
-
-      - name: Install Dependencies
-        id: npm-ci
-        run: npm ci
-
-      - name: Check Format
-        id: npm-format-check
-        run: npm run format:check
-
-      - name: Lint
-        id: npm-lint
-        run: npm run lint
-
-      - name: Test
-        id: npm-ci-test
-        run: npm run ci-test
-
-  test-action:
-    name: GitHub Actions Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        id: checkout
-        uses: actions/checkout@v5
-
-      - name: Test Local Action
-        id: test-action
-        uses: ./
-        with:
-          releaseVersion: '7.23.2'
-          componentName: 'aurora-gateway'
-          environment: 'Development'
-          jobStatus: ${{ job.status }}
-          apiKey: ${{ secrets.DEPLOYRADAR_API_KEY }}
-
-      - name: Print Output
-        id: output
-        run: echo "${{ steps.test-action.outputs.time }}"
+      - run: npm ci --ignore-scripts
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm test -- --runInBand
+      - run: npm run package
+      - run: git diff --exit-code -- dist/index.js
+      - run: npm run test:bundle

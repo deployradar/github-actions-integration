@@ -1,6 +1,9 @@
 name: DeployRadar Deployment
 description: This action creates a deployment in DeployRadar
 author: DeployRadar
+branding:
+  icon: radio
+  color: purple
 
 inputs:
   releaseVersion:
@@ -21,13 +24,11 @@ inputs:
   apiUrl:
     description: DeployRadar deployment endpoint URL
     required: false
-    default: https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions
+    default: https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/cicd-unified
 
 outputs:
   status:
     description: HTTP status returned by the DeployRadar API
-  response:
-    description: Raw response body from the DeployRadar API when available
 
 runs:
   using: node24

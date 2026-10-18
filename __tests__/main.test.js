@@ -79,7 +79,7 @@ describe('action', () => {
     const [url, options] = global.fetch.mock.calls[0]
 
     expect(url).toBe(
-      'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions'
+      'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/cicd-unified'
     )
     expect(options).toEqual(
       expect.objectContaining({
@@ -95,7 +95,7 @@ describe('action', () => {
     expect(payload).toMatchObject({
       integration: {
         type: 'github-actions',
-        version: '2.3.4',
+        version: '0.1.0-alpha.1',
         timestamp: expect.any(String)
       },
       parameters: {
@@ -128,7 +128,11 @@ describe('action', () => {
       }
     })
     expect(core.setOutput).toHaveBeenCalledWith('status', '201')
-    expect(core.setOutput).toHaveBeenCalledWith('response', '{"result":"ok"}')
+    expect(core.setSecret).toHaveBeenCalledWith('test-key')
+    expect(core.setOutput).not.toHaveBeenCalledWith(
+      'response',
+      expect.anything()
+    )
   })
 
   it('sets a failed status when the API rejects', async () => {
@@ -137,7 +141,7 @@ describe('action', () => {
 
     await main.run()
 
-    expect(core.setFailed).toHaveBeenCalledWith('network down')
+    expect(core.setFailed).toHaveBeenCalledWith('DeployRadar delivery failed')
     expect(global.fetch).toHaveBeenCalledTimes(3)
   })
 
@@ -153,7 +157,7 @@ describe('action', () => {
     await main.run()
 
     expect(core.setFailed).toHaveBeenCalledWith(
-      'Failed to create deployment in DeployRadar'
+      'DeployRadar API returned HTTP 400'
     )
   })
 
@@ -212,7 +216,7 @@ describe('action', () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1)
     expect(core.setFailed).toHaveBeenCalledWith(
-      'Failed to create deployment in DeployRadar'
+      'DeployRadar API returned HTTP 400'
     )
   })
 
@@ -394,5 +398,60 @@ describe('action', () => {
     expect(payload.context.source.sha).toBe(
       'c9976f8f9bf3f0f2c0ab45a744a6e2c6c143b387'
     )
+  })
+
+  it('never exposes remote bodies in logs or outputs', async () => {
+    global.fetch.mockResolvedValue(
+      response({ status: 400, text: 'remote-secret' })
+    )
+    await main.run()
+    expect(
+      JSON.stringify([
+        core.error.mock.calls,
+        core.debug.mock.calls,
+        core.setOutput.mock.calls,
+        core.setFailed.mock.calls
+      ])
+    ).not.toContain('remote-secret')
+  })
+
+  it('rejects redirects instead of forwarding authentication', async () => {
+    await main.run()
+    expect(global.fetch.mock.calls[0][1].redirect).toBe('error')
+  })
+
+  it.each([
+    'https://user:password@example.com/deploy',
+    'https://example.com/deploy#fragment',
+    'file:///tmp/deploy'
+  ])('rejects an unsafe API URL: %s', async (url) => {
+    const defaults = core.getInput.getMockImplementation()
+    core.getInput.mockImplementation((name) =>
+      name === 'apiUrl' ? url : defaults(name)
+    )
+    await main.run()
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(core.setFailed).toHaveBeenCalled()
+  })
+
+  it('retries a broken response stream instead of reporting success', async () => {
+    useImmediateRetryDelays()
+    global.fetch
+      .mockResolvedValueOnce({
+        ...response({ status: 200 }),
+        text: jest.fn().mockRejectedValue(new TypeError('interrupted'))
+      })
+      .mockResolvedValueOnce(response({ status: 200 }))
+    await main.run()
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(core.setOutput).toHaveBeenCalledWith('status', '200')
+  })
+
+  it('maps a pushed tag to a tag ref', async () => {
+    setGitHubContext({ ...pushContext, ref: 'refs/tags/v3.1.1' })
+    await main.run()
+    expect(
+      JSON.parse(global.fetch.mock.calls[0][1].body).context.source
+    ).toMatchObject({ branch: 'refs/tags/v3.1.1', branchName: 'v3.1.1' })
   })
 })

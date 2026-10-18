@@ -1,10 +1,10 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
+import metadata from '../package.json' with { type: 'json' }
 
 const DEFAULT_DEPLOY_ENDPOINT =
-  'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/github-actions'
+  'https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/cicd-unified'
 const INTEGRATION_TYPE = 'github-actions'
-const INTEGRATION_VERSION = '2.3.4'
 const SUPPORTED_EVENTS = new Set(['push', 'workflow_dispatch'])
 const REQUEST_TIMEOUT_MS = 15_000
 const MAX_REQUEST_ATTEMPTS = 3
@@ -42,18 +42,12 @@ function branchNameFromRef(ref) {
   return (ref ?? '').replace(/^refs\/(?:heads|tags)\//, '')
 }
 
-function buildRunUri(repository, serverUrl, runId) {
-  if (!runId) {
+function buildRunUri(repository, runId) {
+  if (!runId || !repository?.html_url) {
     return ''
   }
 
-  const repositoryUrl =
-    repository?.html_url ||
-    (repository?.full_name && serverUrl
-      ? `${serverUrl}/${repository.full_name}`
-      : '')
-
-  return repositoryUrl ? `${repositoryUrl}/actions/runs/${runId}` : ''
+  return `${repository.html_url}/actions/runs/${runId}`
 }
 
 export function buildGitHubContext() {
@@ -79,11 +73,7 @@ export function buildGitHubContext() {
       name: github.context.workflow,
       runId: String(github.context.runId ?? ''),
       runNumber: String(github.context.runNumber ?? ''),
-      runUri: buildRunUri(
-        repository,
-        github.context.serverUrl,
-        github.context.runId
-      ),
+      runUri: buildRunUri(repository, github.context.runId),
       eventName: github.context.eventName,
       actor: github.context.actor,
       jobName: github.context.job
@@ -144,7 +134,7 @@ function buildDeploymentPayload({
   return {
     integration: {
       type: INTEGRATION_TYPE,
-      version: INTEGRATION_VERSION,
+      version: metadata.version,
       timestamp: new Date().toISOString()
     },
     parameters: {
@@ -182,8 +172,15 @@ function validateApiUrl(apiUrl) {
     throw new Error('apiUrl must be a valid HTTP(S) URL')
   }
 
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-    throw new Error('apiUrl must be a valid HTTP(S) URL')
+  if (
+    !['http:', 'https:'].includes(parsedUrl.protocol) ||
+    parsedUrl.username ||
+    parsedUrl.password ||
+    parsedUrl.hash
+  ) {
+    throw new Error(
+      'apiUrl must be an HTTP(S) URL without credentials or a fragment'
+    )
   }
 }
 
@@ -249,11 +246,14 @@ async function postDeployment(apiUrl, authHeader, payload) {
           Authorization: authHeader
         },
         body: JSON.stringify(payload),
+        redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
       })
+      // Consume the stream inside the retry path, but never expose its contents.
+      await response.text()
     } catch (error) {
       if (!isRetryableFetchError(error) || attempt === MAX_REQUEST_ATTEMPTS) {
-        throw error
+        throw new Error('DeployRadar delivery failed')
       }
 
       const delay = retryDelay(attempt)
@@ -264,10 +264,8 @@ async function postDeployment(apiUrl, authHeader, payload) {
       continue
     }
 
-    const responseText = await response.text().catch(() => '')
-
     if (!isRetryableResponse(response) || attempt === MAX_REQUEST_ATTEMPTS) {
-      return { response, responseText }
+      return response
     }
 
     const delay = retryDelay(attempt, response)
@@ -293,6 +291,7 @@ export async function run() {
     const environment = getInput('environment', { required: true })
     const jobStatus = getInput('jobStatus', { required: true })
     const apiKey = getInput('apiKey', { required: true })
+    core.setSecret(apiKey)
     const apiUrl = getInput('apiUrl') || DEFAULT_DEPLOY_ENDPOINT
 
     if (!apiKey.trim()) {
@@ -329,32 +328,15 @@ export async function run() {
       ? apiKey
       : `Bearer ${apiKey}`
 
-    const { response, responseText } = await postDeployment(
-      apiUrl,
-      authHeader,
-      payload
-    )
+    const response = await postDeployment(apiUrl, authHeader, payload)
 
     if (!response.ok) {
-      core.error(
-        `DeployRadar API returned ${response.status} ${response.statusText}`
-      )
-      if (responseText) {
-        core.error(responseText)
-      }
-      throw new Error('Failed to create deployment in DeployRadar')
-    }
-
-    if (responseText) {
-      core.debug(`DeployRadar response: ${responseText}`)
+      throw new Error(`DeployRadar API returned HTTP ${response.status}`)
     }
 
     core.info('Deployment request completed successfully.')
 
     core.setOutput('status', String(response.status))
-    if (responseText) {
-      core.setOutput('response', responseText)
-    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     core.setFailed(message)

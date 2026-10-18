@@ -1,0 +1,56 @@
+name: Prepare action release
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing reviewed version tag
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: action-release
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm test -- --runInBand
+      - run: npm run package
+      - run: npm run test:bundle
+      - run: npm run release:check
+  draft:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Create a reviewable draft release
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [[ "$RELEASE_TAG" == *-* ]]; then
+              gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "DeployRadar Deployment $RELEASE_TAG" --notes "Alpha release. Reports to the DeployRadar development API. See README for supported events and setup."
+            else
+              gh release create "$RELEASE_TAG" --verify-tag --draft --title "DeployRadar Deployment $RELEASE_TAG" --generate-notes
+            fi
+          fi
