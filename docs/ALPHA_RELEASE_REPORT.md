@@ -86,11 +86,13 @@ was left unchanged. Both workflow logs were checked for the unmasked temporary
 key; none was found. No task-owned development server or runner process was
 started.
 
-**Marketplace listing is still pending.** The built-in browser is signed out of
-GitHub. After sign-in, edit the existing release, validate the name/category and
-select Marketplace publication. Agreement acceptance, if outstanding, must be
-completed by the organization owner. The action is already usable through its
-public exact-tag reference.
+**Marketplace listing is still pending.** After browser sign-in, GitHub
+explicitly disabled publication because `deployradar` has not accepted the
+GitHub Marketplace Developer Agreement v2.4. The agreement dialog is open for
+owner review and acceptance. No legal terms were accepted by the agent. Once
+accepted, validate the name/category and select Marketplace publication on the
+existing release. The action is already usable through its public exact-tag
+reference.
 
 Safe evidence is in [alpha-evidence](alpha-evidence/). No account passwords, API
 keys, GitHub tokens, or runner credentials are included.

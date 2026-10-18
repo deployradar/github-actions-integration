@@ -5,7 +5,7 @@
   "release": "https://github.com/deployradar/github-actions-integration/releases/tag/v0.1.0-alpha.1",
   "publicRepository": true,
   "marketplacePublished": false,
-  "marketplaceBlocker": "Browser sign-in required; owner agreement status has not been inspected",
+  "marketplaceBlocker": "deployradar must accept GitHub Marketplace Developer Agreement v2.4; signed-in browser dialog is open for owner review",
   "defaultEndpoint": "https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/cicd-unified",
   "endpointOverride": false,
   "legacyFallbacks": false,
