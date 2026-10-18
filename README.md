@@ -158,10 +158,10 @@ cancellation mapping, and redirect refusal.
 
 For an explicitly authorized dev run, create a short-lived API key restricted to
 the placeholder component, environment, and DEPLOYMENT operation. Store it as
-`DEPLOYRADAR_API_KEY` in the test repository's Actions secrets. Dispatch
-**Development API validation** with those resource names. It tests actual
-successful and failed jobs; an independent job requires HTTP 200 evidence from
-both. Read the deployments through the app API to verify persisted context.
+`DEPLOYRADAR_DEV_TEST_API_KEY` in the test repository's Actions secrets.
+Dispatch **Development API validation** with those resource names. It tests
+actual successful and failed jobs; an independent job requires HTTP 200 evidence
+from both. Read the deployments through the app API to verify persisted context.
 Remove the secret and revoke the key afterward.
 
 Before publishing, repeat consumption from a separate repository using the exact

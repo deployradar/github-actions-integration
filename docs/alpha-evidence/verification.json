@@ -4,8 +4,7 @@
   "sourceCommit": "ba3948f24f70ca4521f780140945fed2dbe86812",
   "release": "https://github.com/deployradar/github-actions-integration/releases/tag/v0.1.0-alpha.1",
   "publicRepository": true,
-  "marketplacePublished": false,
-  "marketplaceBlocker": "deployradar must accept GitHub Marketplace Developer Agreement v2.4; signed-in browser dialog is open for owner review",
+  "marketplacePublished": true,
   "defaultEndpoint": "https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/cicd-unified",
   "endpointOverride": false,
   "legacyFallbacks": false,
@@ -54,5 +53,15 @@
     "originalSourceSecretUnchanged": true,
     "workflowLogsContainTemporaryKey": false
   },
-  "versionTagRulesetId": 25337673
+  "versionTagRulesetId": 25337673,
+  "marketplace": {
+    "url": "https://github.com/marketplace/actions/deployradar-deployment",
+    "displayName": "DeployRadar Deployment",
+    "category": "Deployment",
+    "version": "v0.1.0-alpha.1",
+    "prerelease": true,
+    "anonymousHttpStatus": 200,
+    "publishedDate": "2026-10-18",
+    "agentAcceptedLegalTerms": false
+  }
 }

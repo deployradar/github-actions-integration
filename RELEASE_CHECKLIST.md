@@ -26,20 +26,22 @@
 - [x] Confirm public visibility, then make this repository public.
 - [x] Run a separate consumer workflow against the exact release tag.
 
-## Marketplace owner steps
+## Marketplace publication — completed 2026-10-18
 
-- [ ] Verify that the display name is available and metadata is accepted.
-- [ ] Have the organization owner accept the GitHub Marketplace Developer
-      Agreement if required.
-- [ ] Confirm the publishing account has two-factor authentication.
-- [ ] Select **Publish this Action to the GitHub Marketplace** on the release.
-- [ ] Choose **Deployment** as the primary category and publish as an alpha
+- [x] GitHub accepted the display name, action metadata, and README.
+- [x] GitHub confirmed the agreement prerequisite was satisfied; no legal terms
+      were accepted by the agent.
+- [x] GitHub accepted the publishing account's security prerequisites.
+- [x] Select **Publish this Action to the GitHub Marketplace** on the existing
+      release.
+- [x] Choose **Deployment** as the primary category and retain the alpha
       prerelease.
-- [ ] Verify the public listing and exact-tag usage example.
+- [x] Verify the public listing and exact-tag usage example, including anonymous
+      access.
 
-GitHub requires owner acceptance of its agreement; an agent must not accept
-legal terms on the owner's behalf. If the agreement is already accepted,
-publication can continue within the user's authorization. See the official
+[Live Marketplace listing](https://github.com/marketplace/actions/deployradar-deployment).
+Future publishers must satisfy GitHub's agreement and security requirements; see
+the official
 [Marketplace publishing instructions](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace).
 
 ## Later stable release

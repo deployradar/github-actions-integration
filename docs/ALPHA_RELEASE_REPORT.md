@@ -86,13 +86,18 @@ was left unchanged. Both workflow logs were checked for the unmasked temporary
 key; none was found. No task-owned development server or runner process was
 started.
 
-**Marketplace listing is still pending.** After browser sign-in, GitHub
-explicitly disabled publication because `deployradar` has not accepted the
-GitHub Marketplace Developer Agreement v2.4. The agreement dialog is open for
-owner review and acceptance. No legal terms were accepted by the agent. Once
-accepted, validate the name/category and select Marketplace publication on the
-existing release. The action is already usable through its public exact-tag
-reference.
+**Marketplace publication completed on 2026-10-18.** A fresh signed-in release
+page confirmed that the agreement prerequisite was satisfied; no legal terms
+were accepted by the agent. GitHub validated the action name, metadata, and
+README. The existing alpha release was published in the **Deployment** category,
+retaining its prerelease designation and original tag/commit.
+
+The live
+[DeployRadar Deployment listing](https://github.com/marketplace/actions/deployradar-deployment)
+shows `v0.1.0-alpha.1`, the unified dev endpoint, and the exact-tag usage
+example. An anonymous HTTP request returned 200 and confirmed the action name
+and alpha version. The publishing account's existing valid security-contact
+field was used without changing unrelated account or repository settings.
 
 Safe evidence is in [alpha-evidence](alpha-evidence/). No account passwords, API
 keys, GitHub tokens, or runner credentials are included.
