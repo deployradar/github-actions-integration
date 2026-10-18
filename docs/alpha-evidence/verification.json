@@ -1,0 +1,58 @@
+{
+  "testedAt": "2026-10-18T09:08:20.216Z",
+  "version": "0.1.0-alpha.1",
+  "sourceCommit": "ba3948f24f70ca4521f780140945fed2dbe86812",
+  "release": "https://github.com/deployradar/github-actions-integration/releases/tag/v0.1.0-alpha.1",
+  "publicRepository": true,
+  "marketplacePublished": false,
+  "marketplaceBlocker": "Browser sign-in required; owner agreement status has not been inspected",
+  "defaultEndpoint": "https://app-dev.deployradar.com/api/deploy-radar/v1/deploy/cicd-unified",
+  "endpointOverride": false,
+  "legacyFallbacks": false,
+  "tests": {
+    "unitCount": 23,
+    "bundleSmokePassed": true,
+    "formatPassed": true,
+    "lintPassed": true,
+    "workflowLintPassed": true,
+    "releaseGuardsPassed": true,
+    "productionAuditVulnerabilities": 0
+  },
+  "runs": {
+    "dev": "39113653889",
+    "consumer": "39113980277",
+    "release": "39113978989"
+  },
+  "devRecords": [
+    {
+      "uuid": "a1d6caaf-8ffc-4f57-a8ab-ad0ee39b002b",
+      "state": "FAILURE",
+      "runUri": "https://github.com/deployradar/github-actions-integration/actions/runs/39113653889"
+    },
+    {
+      "uuid": "9705cf2c-8373-485e-9bb6-51d4bb2cc19a",
+      "state": "SUCCESS",
+      "runUri": "https://github.com/deployradar/github-actions-integration/actions/runs/39113653889"
+    }
+  ],
+  "consumerRecords": [
+    {
+      "uuid": "aae52950-808e-4e4c-aa07-fee1835b5d62",
+      "state": "SUCCESS",
+      "runUri": "https://github.com/deployradar/github-actions-integration-tests/actions/runs/39113980277"
+    },
+    {
+      "uuid": "c0a858c3-7d4e-4137-9dc7-2f556fae401f",
+      "state": "FAILURE",
+      "runUri": "https://github.com/deployradar/github-actions-integration-tests/actions/runs/39113980277"
+    }
+  ],
+  "cleanup": {
+    "temporaryDevApiKeyRevoked": true,
+    "sourceTemporarySecretRemoved": true,
+    "consumerTemporarySecretRemoved": true,
+    "originalSourceSecretUnchanged": true,
+    "workflowLogsContainTemporaryKey": false
+  },
+  "versionTagRulesetId": 25337673
+}
