@@ -1,80 +1,55 @@
-# Release Checklist
+# Release checklist
 
-Use this checklist when preparing a GitHub Actions release. Choose one
-distribution model before publishing: a public action is available to anyone; an
-internal action is available only within the configured GitHub organization or
-enterprise.
+## Agreed first alpha
 
-## Every release
+- Version: `v0.1.0-alpha.1`; package and reported integration version match.
+- Distribution: the existing `deployradar/github-actions-integration`
+  repository.
+- License: MIT; display name: DeployRadar Deployment.
+- Endpoint: development `/api/deploy-radar/v1/deploy/cicd-unified` only.
+- References: exact alpha tags or reviewed commit SHA; no moving major tag yet.
+- Runtime: committed Node 24 bundle; no npm registry publication.
 
-- [ ] Decide the release version and create a release branch or pull request.
-- [ ] Update the default `apiUrl` from the development API to the intended
-      production endpoint, or explicitly confirm that the release must use the
-      development endpoint.
-- [ ] Confirm the public README example uses the published action reference:
-      `deployradar/github-actions-integration@<version>`.
-- [ ] Add and review a repository `LICENSE` file. `package.json` declares MIT,
-      but the repository must contain the matching license text before a public
-      release.
-- [ ] Run `npm test -- --runInBand`, `npm run lint`, and `npm run format:check`.
-- [ ] Run `npm run package` and commit the resulting `dist/index.js` change.
-- [ ] Review `action.yml`: input descriptions, default endpoint, outputs, Node
-      runtime, action name, and branding.
-- [ ] Verify the release workflow with `workflow_dispatch`, using
-      `secrets.DEPLOYRADAR_API_KEY`.
-- [ ] Merge to the default branch, tag the immutable release (for example,
-      `v1.0.0`), and create matching GitHub Release notes.
-- [ ] Optionally maintain a moving major-version tag such as `v1` for simpler
-      consumer upgrades. Document the supported reference strategy.
+## Validate before publication
 
-## Public repository and Marketplace release
+- [ ] Run Node 24 unit tests, lint, format checks, and real-bundle mock tests.
+- [ ] Build and commit `dist/index.js`; require a clean rebuild in CI.
+- [ ] Test real dev success/failure delivery with a fresh scoped API key.
+- [ ] Independently verify HTTP status, saved state, version, and native
+      context.
+- [ ] Remove the temporary Actions secret and revoke its API key.
+- [ ] Review the complete Git history and current files for credentials or
+      private data.
+- [ ] Merge the reviewed release PR into `main`.
+- [ ] Tag that commit `v0.1.0-alpha.1`; run release checks and prepare draft
+      notes.
+- [ ] Confirm public visibility, then make this repository public.
+- [ ] Run a separate consumer workflow against the exact release tag.
 
-- [ ] Confirm that making the source code and action available to anyone is
-      intended. A public action cannot be restricted to DeployRadar customers.
-- [ ] Change the repository visibility to public.
-- [ ] Confirm that `action.yml` is the single action metadata file at the
-      repository root and that its action name is unique in GitHub Marketplace.
-- [ ] Have the repository owner or organization owner accept the GitHub
-      Marketplace Developer Agreement and enable two-factor authentication.
-- [ ] Create the GitHub Release, select **Publish this Action to the GitHub
-      Marketplace**, choose a primary category, and publish it.
-- [ ] Install the released action in a separate test repository using the
-      release tag, not `main`.
-- [ ] Update the documentation and changelog with the stable usage reference.
+## Marketplace owner steps
 
-Publishing in Marketplace is optional: a public repository action can be
-referenced by workflows without a Marketplace listing. Marketplace publication
-requires a public repository. See
-[Publishing actions in GitHub Marketplace](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace).
+- [ ] Verify that the display name is available and metadata is accepted.
+- [ ] Have the organization owner accept the GitHub Marketplace Developer
+      Agreement if required.
+- [ ] Confirm the publishing account has two-factor authentication.
+- [ ] Select **Publish this Action to the GitHub Marketplace** on the release.
+- [ ] Choose **Deployment** as the primary category and publish as an alpha
+      prerelease.
+- [ ] Verify the public listing and exact-tag usage example.
 
-## Internal-only distribution
+GitHub requires owner acceptance of its agreement; an agent must not accept
+legal terms on the owner's behalf. If the agreement is already accepted,
+publication can continue within the user's authorization. See the official
+[Marketplace publishing instructions](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace).
 
-- [ ] Do not make the repository public and do not publish it in Marketplace.
-- [ ] For a single organization, retain private visibility and set **Settings →
-      Actions → General → Access** to **Accessible from repositories in the
-      organization**.
-- [ ] For use across organizations in a GitHub Enterprise account, use an
-      internal repository and grant organization or enterprise access under the
-      same Actions settings.
-- [ ] Confirm each consuming repository permits organization actions under its
-      own Actions policy.
-- [ ] Test consumption from a separate allowed private or internal repository.
-- [ ] Review the access implication: people with access to consuming workflow
-      logs can indirectly inspect action execution details.
+## Later stable release
 
-Private actions can be shared with private repositories in the same
-organization. Internal repositories are the enterprise option for sharing with
-internal and private repositories across the enterprise. See
-[sharing with an organization](https://docs.github.com/en/actions/how-tos/reuse-automations/share-with-your-organization)
-and
-[sharing with an enterprise](https://docs.github.com/en/enterprise-cloud@latest/actions/how-tos/reuse-automations/share-with-your-enterprise).
-
-## Post-release
-
-- [ ] Verify the tagged action completes a deployment against the intended API
-      environment.
-- [ ] Confirm the request contains no secret values in logs or outputs.
-- [ ] Monitor initial customer runs and API error rates.
-- [ ] Create a follow-up issue to add an API-supported idempotency key; an
-      ambiguous network failure can otherwise create a duplicate deployment
-      after a retry.
+- [ ] Confirm a production ingestion URL; replace the alpha dev default
+      directly.
+- [ ] Record it as `package.json.deployradar.productionApiUrl`; do not add route
+      fallbacks.
+- [ ] Verify production delivery with an explicitly authorized scoped key.
+- [ ] Publish the immutable stable version and introduce the documented moving
+      `v1` tag.
+- [ ] Coordinate API-supported idempotency before promising exactly-once
+      delivery.
