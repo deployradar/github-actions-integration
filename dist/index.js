@@ -15,7 +15,7 @@ import { createRequire } from 'node:module';
 import require$$5 from 'string_decoder';
 import 'child_process';
 import 'timers';
-import metadata from '../package.json' with { type: 'json' };
+import metadata from '../package.json' with { type: "json" };
 
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
