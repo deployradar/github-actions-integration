@@ -1,0 +1,79 @@
+name: Released action development validation
+on:
+  workflow_dispatch:
+    inputs:
+      componentName:
+        description: Placeholder component covered by the test API key
+        required: true
+        default: github-action-alpha-test
+      environment:
+        description: Placeholder environment covered by the test API key
+        required: true
+        default: github-action-alpha-test
+permissions:
+  contents: read
+jobs:
+  deploy:
+    name: Dev deployment (${{ matrix.outcome }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        outcome: [success, failure]
+    continue-on-error: ${{ matrix.outcome == 'failure' }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Placeholder deployment
+        env:
+          OUTCOME: ${{ matrix.outcome }}
+        run: if [ "$OUTCOME" = failure ]; then exit 42; fi
+      - name: Record native deployment outcome
+        id: report
+        if: ${{ always() }}
+        uses: deployradar/github-actions-integration@v0.1.0-alpha.1
+        with:
+          componentName: ${{ inputs.componentName }}
+          environment: ${{ inputs.environment }}
+          releaseVersion: alpha-dev-${{ github.run_id }}-${{ matrix.outcome }}
+          jobStatus: ${{ job.status }}
+          apiKey: ${{ secrets.DEPLOYRADAR_DEV_TEST_API_KEY }}
+      - name: Independently record delivery evidence
+        if: ${{ always() }}
+        env:
+          HTTP_STATUS: ${{ steps.report.outputs.status }}
+          REPORT_OUTCOME: ${{ steps.report.outcome }}
+          EXPECTED_STATE: ${{ matrix.outcome }}
+        run: |
+          node --input-type=module -e '
+            import {writeFileSync} from "node:fs";
+            if(process.env.HTTP_STATUS !== "200" || process.env.REPORT_OUTCOME !== "success") process.exit(1);
+            writeFileSync("delivery.json", JSON.stringify({httpStatus:200, expectedState:process.env.EXPECTED_STATE, runId:process.env.GITHUB_RUN_ID, sha:process.env.GITHUB_SHA}));
+          '
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ always() }}
+        with:
+          name: dev-${{ matrix.outcome }}
+          path: delivery.json
+          if-no-files-found: error
+          retention-days: 7
+  verify-delivery:
+    if: ${{ always() }}
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          pattern: dev-*
+          path: evidence
+      - name: Require both recorded outcomes
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            for(const outcome of ["success","failure"]){
+              const record=JSON.parse(readFileSync("evidence/dev-"+outcome+"/delivery.json"));
+              if(record.httpStatus !== 200 || record.expectedState !== outcome || record.runId !== process.env.GITHUB_RUN_ID) process.exit(1);
+            }
+          '

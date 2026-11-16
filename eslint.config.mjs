@@ -42,7 +42,7 @@ export default [
         SharedArrayBuffer: 'readonly'
       },
 
-      ecmaVersion: 2023,
+      ecmaVersion: 2025,
       sourceType: 'module'
     },
 
